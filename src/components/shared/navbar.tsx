@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Pizza, Menu, X } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/shared/theme-toggle";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -27,7 +27,7 @@ export function Navbar() {
             href="/"
             className="flex items-center gap-2.5 shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-full"
           >
-            <div className="size-8 sm:size-9 rounded-full bg-(image:--gradient-primary) flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+            <div className="size-8 sm:size-9 rounded-full bg-[image:var(--gradient-primary)] flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
               <Pizza className="size-4 sm:size-5" />
             </div>
             <span className="font-heading font-extrabold text-lg sm:text-xl tracking-tight text-foreground">
@@ -66,7 +66,7 @@ export function Navbar() {
             </Link>
             <Link
               href="/auth/signup"
-              className="bg-(image:--gradient-primary) hover:brightness-105 active:brightness-95 text-white text-sm font-semibold px-5 py-2 rounded-full shadow-xs transition-all cursor-pointer"
+              className="bg-[image:var(--gradient-primary)] hover:brightness-105 active:brightness-95 text-white text-sm font-semibold px-5 py-2 rounded-full shadow-xs transition-all cursor-pointer"
             >
               Sign Up
             </Link>
@@ -123,7 +123,7 @@ export function Navbar() {
               <Link
                 href="/auth/signup"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full text-center py-2 text-sm font-semibold text-white bg-(image:--gradient-primary) hover:brightness-105 rounded-full shadow-xs transition-all"
+                className="w-full text-center py-2 text-sm font-semibold text-white bg-[image:var(--gradient-primary)] hover:brightness-105 rounded-full shadow-xs transition-all"
               >
                 Sign Up
               </Link>

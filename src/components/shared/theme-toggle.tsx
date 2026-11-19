@@ -27,7 +27,6 @@ function getServerSnapshot(): "light" | "dark" {
 export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
-  // Synchronize DOM class with external state without calling setState
   useEffect(() => {
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
