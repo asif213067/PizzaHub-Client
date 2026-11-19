@@ -1,6 +1,7 @@
 import { HeroBanner } from "@/components/landing-page/hero-banner";
 import { PizzaCategories } from "@/components/landing-page/pizza-categories";
 import { WhyChooseUs } from "@/components/landing-page/why-choose-us";
+import { HowItWorks } from "@/components/landing-page/how-it-works";
 
 export default function Home() {
   return (
@@ -8,6 +9,7 @@ export default function Home() {
       <HeroBanner />
       <PizzaCategories />
       <WhyChooseUs />
+      <HowItWorks />
     </main>
   );
 }

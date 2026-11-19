@@ -39,7 +39,7 @@ export function WhyChooseUs() {
     <section className="w-full py-4 sm:py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Warm golden gradient container matching reference design */}
-        <div className="w-full rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#F2A541] via-[#F5B558] to-[#F8CB7A] dark:from-amber-600/90 dark:via-amber-500/80 dark:to-amber-400/80 p-6 sm:p-8 md:p-10 shadow-sm">
+        <div className="w-full rounded-2xl sm:rounded-3xl bg-linear-to-r from-[#F2A541] via-[#F5B558] to-[#F8CB7A] dark:from-amber-600/90 dark:via-amber-500/80 dark:to-amber-400/80 p-6 sm:p-8 md:p-10 shadow-sm">
           {/* Section Heading */}
           <h2 className="font-heading font-extrabold text-2xl sm:text-3xl text-stone-900 tracking-tight mb-5 sm:mb-6 md:mb-8">
             Why Choose PizzaHub?
