@@ -23,7 +23,7 @@ export function clearStoredToken(): void {
  */
 export async function syncAuthToken(email: string): Promise<string | null> {
   try {
-    const res = await fetch(`${SERVER_BASE_URL}/api/v1/auth/jwt`, {
+    const res = await fetch(`${SERVER_BASE_URL}/api/auth/jwt`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

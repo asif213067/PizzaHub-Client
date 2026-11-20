@@ -12,9 +12,6 @@ import {
   LayoutDashboard,
   User,
   LogOut,
-  ShoppingBag,
-  Store,
-  ShieldCheck,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { useSession, signOut } from "@/lib/auth-client";

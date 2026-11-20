@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   ChevronLeft,
@@ -13,6 +14,8 @@ import {
 import { toast } from "sonner";
 import { MenuItem } from "@/components/shared/pizza-card";
 import { RelatedVendorItems } from "./related-vendor-items";
+import { OrderModal } from "./order-modal";
+import { useSession } from "@/lib/auth-client";
 
 interface ItemDetailsClientProps {
   item: MenuItem;
@@ -22,7 +25,11 @@ const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=800&q=80";
 
 export function ItemDetailsClient({ item }: ItemDetailsClientProps) {
+  const router = useRouter();
+  const { data: session } = useSession();
+
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
 
   const images =
     item.images && item.images.length > 0 ? item.images : [FALLBACK_IMAGE];
@@ -43,7 +50,29 @@ export function ItemDetailsClient({ item }: ItemDetailsClientProps) {
   }
 
   function handleOrderClick() {
-    toast.info("Online ordering for this item will be available soon!");
+    if (!session?.user) {
+      router.push(`/auth/signin?callbackUrl=/menu/${item._id}`);
+      return;
+    }
+
+    const user = session.user as { id?: string; role?: string };
+    const role = user.role || "customer";
+
+    // 1. Role-based restriction: Only customers can place orders
+    if (role !== "customer") {
+      toast.error("Only customers can place orders.");
+      return;
+    }
+
+    // 2. Prevent vendors from ordering their own products
+    const vendorId = item.vendor?._id;
+    if (vendorId && user.id && vendorId.toString() === user.id.toString()) {
+      toast.error("You cannot place an order for your own menu item.");
+      return;
+    }
+
+    // Open the order dialog
+    setOrderModalOpen(true);
   }
 
   return (
@@ -240,6 +269,13 @@ export function ItemDetailsClient({ item }: ItemDetailsClientProps) {
         <RelatedVendorItems
           itemId={item._id}
           vendorName={vendorDisplayName}
+        />
+
+        {/* Place Your Order Dialog */}
+        <OrderModal
+          item={item}
+          isOpen={orderModalOpen}
+          onClose={() => setOrderModalOpen(false)}
         />
       </div>
     </main>
