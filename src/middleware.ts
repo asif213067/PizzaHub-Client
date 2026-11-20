@@ -4,10 +4,16 @@ const PROTECTED_ROUTES: Record<string, string[]> = {
   "/dashboard/admin": ["admin"],
   "/dashboard/vendor": ["vendor"],
   "/dashboard/customer": ["customer"],
+  "/menu/": ["customer", "vendor", "admin"],
 };
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // The main /menu browse page is public; /menu/[id] requires authentication
+  if (pathname === "/menu") {
+    return NextResponse.next();
+  }
 
   // Check if route is protected
   const allowedRoles = Object.entries(PROTECTED_ROUTES).find(([route]) =>
@@ -81,5 +87,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/menu/:path+"],
 };

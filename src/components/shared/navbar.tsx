@@ -86,28 +86,6 @@ export function Navbar() {
     { name: "Browse Menu", href: "/menu" },
   ];
 
-  // Role-specific quick link for logged-in users
-  if (user) {
-    if (role === "customer") {
-      navLinks.push({
-        name: "My Orders",
-        href: "/dashboard/customer/orders",
-        icon: ShoppingBag,
-      });
-    } else if (role === "vendor") {
-      navLinks.push({
-        name: "My Menu",
-        href: "/dashboard/vendor/items",
-        icon: Store,
-      });
-    } else if (role === "admin") {
-      navLinks.push({
-        name: "Manage Users",
-        href: "/dashboard/admin/users",
-        icon: ShieldCheck,
-      });
-    }
-  }
 
   // Get user initials for avatar fallback
   const initials = user?.name
