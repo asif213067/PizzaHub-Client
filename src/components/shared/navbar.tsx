@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Pizza,
@@ -71,6 +72,13 @@ export function Navbar() {
       : role === "vendor"
       ? "/dashboard/vendor"
       : "/dashboard/customer";
+
+  // Build callbackUrl — only for non-auth, non-dashboard pages
+  const isAuthOrDashboard =
+    pathname.startsWith("/auth") || pathname.startsWith("/dashboard");
+  const encodedCallback = isAuthOrDashboard
+    ? ""
+    : `?callbackUrl=${encodeURIComponent(pathname)}`;
 
   // Base navigation links
   const navLinks: { name: string; href: string; icon?: typeof Pizza }[] = [
@@ -169,10 +177,11 @@ export function Navbar() {
                   className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full border border-border/70 hover:border-primary/40 bg-muted/40 hover:bg-muted/70 transition-all cursor-pointer"
                 >
                   {user.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={user.image}
                       alt={user.name || "User"}
+                      width={32}
+                      height={32}
                       className="size-7 sm:size-8 rounded-full object-cover border border-border/60"
                     />
                   ) : (
@@ -248,13 +257,13 @@ export function Navbar() {
               // Logged Out: Sign In & Sign Up
               <>
                 <Link
-                  href="/auth/signin"
+                  href={`/auth/signin${encodedCallback}`}
                   className="text-sm font-medium text-foreground/85 hover:text-foreground transition-colors px-2.5 py-1"
                 >
                   Sign In
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href={`/auth/signup${encodedCallback}`}
                   className="bg-[image:var(--gradient-primary)] hover:brightness-105 active:brightness-95 text-white text-sm font-semibold px-5 py-2 rounded-full shadow-xs transition-all cursor-pointer"
                 >
                   Sign Up
@@ -288,10 +297,11 @@ export function Navbar() {
             {user && (
               <div className="flex items-center gap-3 pb-3 border-b border-border/60">
                 {user.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={user.image}
                     alt={user.name || "User"}
+                    width={40}
+                    height={40}
                     className="size-10 rounded-full object-cover border border-border/60"
                   />
                 ) : (
@@ -366,14 +376,14 @@ export function Navbar() {
               ) : (
                 <>
                   <Link
-                    href="/auth/signin"
+                    href={`/auth/signin${encodedCallback}`}
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full text-center py-2 text-sm font-medium text-foreground rounded-full border border-border hover:bg-muted transition-colors"
                   >
                     Sign In
                   </Link>
                   <Link
-                    href="/auth/signup"
+                    href={`/auth/signup${encodedCallback}`}
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full text-center py-2 text-sm font-semibold text-white bg-[image:var(--gradient-primary)] hover:brightness-105 rounded-full shadow-xs transition-all"
                   >

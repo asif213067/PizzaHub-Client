@@ -22,6 +22,18 @@ export default function AuthCallbackPage() {
         await syncAuthToken(session.user.email);
       }
 
+      // Check if a callbackUrl was stored before the Google OAuth redirect
+      const storedCallback =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("auth_callback_url")
+          : null;
+
+      if (storedCallback) {
+        sessionStorage.removeItem("auth_callback_url");
+        router.replace(storedCallback);
+        return;
+      }
+
       const user = session?.user as { role?: string } | undefined;
       const role = user?.role;
 

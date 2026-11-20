@@ -35,6 +35,7 @@ function SignInFormFields() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const blockedParam = searchParams.get("error") === "blocked";
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,13 +80,13 @@ function SignInFormFields() {
 
       const role = user?.role;
       setTimeout(() => {
-        if (role === "admin") {
-          router.push("/dashboard/admin");
-        } else if (role === "vendor") {
-          router.push("/dashboard/vendor");
-        } else {
-          router.push("/dashboard/customer");
-        }
+        const roleDashboard =
+          role === "admin"
+            ? "/dashboard/admin"
+            : role === "vendor"
+            ? "/dashboard/vendor"
+            : "/dashboard/customer";
+        router.push(callbackUrl || roleDashboard);
       }, 700);
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -98,6 +99,10 @@ function SignInFormFields() {
     setSuccess(null);
     setGoogleLoading(true);
     try {
+      // Store callbackUrl before OAuth redirect so the callback page can use it
+      if (callbackUrl) {
+        sessionStorage.setItem("auth_callback_url", callbackUrl);
+      }
       await signIn.social({ provider: "google", callbackURL: "/auth/callback" });
     } catch {
       setError("Could not connect to Google. Please try again.");
@@ -196,7 +201,7 @@ function SignInFormFields() {
         <p className="text-center text-sm text-muted-foreground mt-6">
           New to PizzaHub?{" "}
           <Link
-            href="/auth/signup"
+            href={callbackUrl ? `/auth/signup?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/signup"}
             className="font-semibold text-primary hover:underline transition-colors"
           >
             Create an account

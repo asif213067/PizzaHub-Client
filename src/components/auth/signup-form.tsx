@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn } from "@/lib/auth-client";
 import { syncAuthToken } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -40,8 +40,10 @@ function validatePassword(pwd: string): string | null {
   return null;
 }
 
-export function SignUpForm() {
+function SignUpFormFields() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -127,17 +129,15 @@ export function SignUpForm() {
         return;
       }
 
-      setSuccess("Account created successfully! Redirecting to your dashboard...");
+      setSuccess("Account created successfully! Redirecting...");
 
       // Sync verified JWT with Express backend
       await syncAuthToken(email.trim());
 
       setTimeout(() => {
-        if (safeRole === "vendor") {
-          router.push("/dashboard/vendor");
-        } else {
-          router.push("/dashboard/customer");
-        }
+        const roleDashboard =
+          safeRole === "vendor" ? "/dashboard/vendor" : "/dashboard/customer";
+        router.push(callbackUrl || roleDashboard);
       }, 700);
     } catch {
       setError("An unexpected error occurred. Please try again.");
@@ -150,6 +150,10 @@ export function SignUpForm() {
     setSuccess(null);
     setGoogleLoading(true);
     try {
+      // Store callbackUrl before OAuth redirect so the callback page can use it
+      if (callbackUrl) {
+        sessionStorage.setItem("auth_callback_url", callbackUrl);
+      }
       await signIn.social({ provider: "google", callbackURL: "/auth/callback" });
     } catch {
       setError("Could not connect to Google. Please try again.");
@@ -394,7 +398,7 @@ export function SignUpForm() {
         <p className="text-center text-sm text-muted-foreground mt-6">
           Already have an account?{" "}
           <Link
-            href="/auth/signin"
+            href={callbackUrl ? `/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/signin"}
             className="font-semibold text-primary hover:underline transition-colors"
           >
             Sign In
@@ -402,5 +406,13 @@ export function SignUpForm() {
         </p>
       </div>
     </div>
+  );
+}
+
+export function SignUpForm() {
+  return (
+    <Suspense fallback={<div className="text-sm text-muted-foreground text-center py-8">Loading sign up...</div>}>
+      <SignUpFormFields />
+    </Suspense>
   );
 }
