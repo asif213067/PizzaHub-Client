@@ -7,6 +7,8 @@ export const metadata: Metadata = {
   description: "PizzaHub Dashboard - Manage and track your pizzas and orders",
 };
 
+export const instant = false;
+
 export default function DashboardLayout({
   children,
 }: {
