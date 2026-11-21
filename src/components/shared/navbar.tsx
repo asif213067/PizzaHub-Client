@@ -205,7 +205,7 @@ export function Navbar() {
                         <span>Dashboard</span>
                       </Link>
                       <Link
-                        href="/profile"
+                        href={`${dashboardHref}/profile`}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2 text-xs sm:text-sm font-medium text-card-foreground hover:bg-muted/70 transition-colors"
                       >
