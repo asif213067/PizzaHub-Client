@@ -7,7 +7,7 @@ const PROTECTED_ROUTES: Record<string, string[]> = {
   "/menu/": ["customer", "vendor", "admin"],
 };
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // The main /menu browse page is public; /menu/[id] requires authentication
