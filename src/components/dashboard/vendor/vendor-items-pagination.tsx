@@ -6,6 +6,7 @@ interface VendorItemsPaginationProps {
   totalItems: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  itemLabel?: string;
 }
 
 export function VendorItemsPagination({
@@ -14,6 +15,7 @@ export function VendorItemsPagination({
   totalItems,
   pageSize,
   onPageChange,
+  itemLabel = "items",
 }: VendorItemsPaginationProps) {
   if (totalItems === 0) return null;
 
@@ -29,7 +31,7 @@ export function VendorItemsPagination({
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 select-none">
       {/* Left count indicator */}
       <p className="text-xs text-muted-foreground font-medium">
-        Showing {start} to {end} of {totalItems} items
+        Showing {start} to {end} of {totalItems} {itemLabel}
       </p>
 
       {/* Right controls */}

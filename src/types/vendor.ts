@@ -17,6 +17,7 @@ export interface VendorCustomer {
   name?: string;
   email?: string;
   image?: string;
+  phone?: string;
 }
 
 export interface VendorOrder {
@@ -27,7 +28,7 @@ export interface VendorOrder {
   deliveryDate: string;
   deliveryAddress: string;
   message?: string;
-  status: "pending" | "accepted" | "rejected" | "cancelled";
+  status: "pending" | "accepted" | "rejected" | "cancelled" | "delivered" | "completed";
   createdAt: string;
   updatedAt?: string;
   item?: {
