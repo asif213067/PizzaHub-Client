@@ -3,9 +3,14 @@ import { MonthlyOrderCount } from "@/types/order";
 interface MonthlyBarChartProps {
   monthlyData: MonthlyOrderCount[];
   loading?: boolean;
+  title?: string;
 }
 
-export function MonthlyBarChart({ monthlyData, loading }: MonthlyBarChartProps) {
+export function MonthlyBarChart({
+  monthlyData,
+  loading,
+  title = "Orders, last 6 months",
+}: MonthlyBarChartProps) {
   // Find maximum count to scale bars (fallback to 4 if all 0 so bars have clean scale)
   const maxCount = Math.max(...monthlyData.map((d) => d.count), 4);
   const totalCount = monthlyData.reduce((acc, curr) => acc + curr.count, 0);
@@ -14,7 +19,7 @@ export function MonthlyBarChart({ monthlyData, loading }: MonthlyBarChartProps) 
     <div className="bg-white dark:bg-card border border-stone-200/70 dark:border-stone-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col justify-between">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-heading text-sm sm:text-base font-bold text-foreground">
-          Orders, last 6 months
+          {title}
         </h3>
         <span className="text-xs text-muted-foreground font-medium">
           {totalCount} total

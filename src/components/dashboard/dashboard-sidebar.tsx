@@ -10,9 +10,10 @@ import {
   LogOut,
   Pizza,
   X,
-  PackagePlus,
   UtensilsCrossed,
   Users,
+  Star,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -70,22 +71,28 @@ export function DashboardSidebar() {
       active: pathname === "/dashboard/vendor",
     },
     {
-      name: "My Items",
+      name: "My Menu Items",
       href: "/dashboard/vendor/items",
-      icon: UtensilsCrossed,
+      icon: Pizza,
       active: pathname.startsWith("/dashboard/vendor/items"),
     },
     {
-      name: "Add Item",
+      name: "Add Menu Item",
       href: "/dashboard/vendor/add-item",
-      icon: PackagePlus,
+      icon: Plus,
       active: pathname.startsWith("/dashboard/vendor/add-item"),
     },
     {
-      name: "Orders",
+      name: "Customer Orders",
       href: "/dashboard/vendor/orders",
       icon: ShoppingBag,
       active: pathname.startsWith("/dashboard/vendor/orders"),
+    },
+    {
+      name: "Subscription",
+      href: "/dashboard/vendor/subscription",
+      icon: Star,
+      active: pathname.startsWith("/dashboard/vendor/subscription"),
     },
     {
       name: "Profile Settings",
