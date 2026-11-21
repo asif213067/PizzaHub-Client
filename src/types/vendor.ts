@@ -6,7 +6,7 @@ export interface VendorMenuItem {
   price: number;
   location?: string;
   images?: string[];
-  status?: "pending" | "approved" | "rejected";
+  status?: "pending" | "approved" | "rejected" | "inactive";
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;

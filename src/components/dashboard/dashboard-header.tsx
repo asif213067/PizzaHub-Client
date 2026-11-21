@@ -14,11 +14,13 @@ import { useDashboard } from "./dashboard-context";
 interface DashboardHeaderProps {
   title?: string;
   subtitle?: string;
+  action?: React.ReactNode;
 }
 
 export function DashboardHeader({
   title = "Overview",
   subtitle = "Your orders at a glance.",
+  action,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -89,8 +91,9 @@ export function DashboardHeader({
         </div>
       </div>
 
-      {/* Right: Theme Toggle + Profile Dropdown */}
-      <div className="flex items-center gap-3 shrink-0">
+      {/* Right: Action Button + Theme Toggle + Profile Dropdown */}
+      <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+        {action && <div>{action}</div>}
         <ThemeToggle />
 
         {/* Profile Dropdown */}
@@ -138,22 +141,45 @@ export function DashboardHeader({
               </div>
 
               <div className="py-1">
-                <Link
-                  href="/dashboard/customer/orders"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                >
-                  <ShoppingBag className="size-3.5 text-muted-foreground" />
-                  <span>My Orders</span>
-                </Link>
-                <Link
-                  href="/dashboard/customer/profile"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                >
-                  <User className="size-3.5 text-muted-foreground" />
-                  <span>Profile Settings</span>
-                </Link>
+                {user?.role === "vendor" ? (
+                  <>
+                    <Link
+                      href="/dashboard/vendor/orders"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                    >
+                      <ShoppingBag className="size-3.5 text-muted-foreground" />
+                      <span>Customer Orders</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/vendor/items"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                    >
+                      <User className="size-3.5 text-muted-foreground" />
+                      <span>My Menu Items</span>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/dashboard/customer/orders"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                    >
+                      <ShoppingBag className="size-3.5 text-muted-foreground" />
+                      <span>My Orders</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/customer/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                    >
+                      <User className="size-3.5 text-muted-foreground" />
+                      <span>Profile Settings</span>
+                    </Link>
+                  </>
+                )}
               </div>
 
               <div className="border-t border-border/60 pt-1">

@@ -40,8 +40,6 @@ export default function VendorOverviewPage() {
 
     async function fetchVendorOverviewData() {
       try {
-        setLoading(true);
-
         // Ensure token is synced if missing from localStorage
         if (!getStoredToken() && session?.user?.email) {
           await syncAuthToken(session.user.email);

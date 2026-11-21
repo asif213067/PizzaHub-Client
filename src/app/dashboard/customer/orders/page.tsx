@@ -36,8 +36,6 @@ export default function CustomerOrdersPage() {
 
     async function fetchOrders() {
       try {
-        setLoading(true);
-
         // Ensure token is synced if missing from localStorage
         if (!getStoredToken() && session?.user?.email) {
           await syncAuthToken(session.user.email);
