@@ -12,7 +12,6 @@ import {
   AlertCircle,
   Upload,
   X,
-  ImageIcon,
   Eye,
   EyeOff,
   Loader2,
@@ -64,13 +63,11 @@ function SignUpFormFields() {
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<Role>("customer");
 
-  // Profile image upload state
+  // Profile image upload state (Device only)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadedImgUrl, setUploadedImgUrl] = useState<string>("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [imageUrlInput, setImageUrlInput] = useState("");
-  const [showUrlInput, setShowUrlInput] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -123,7 +120,6 @@ function SignUpFormFields() {
     setSelectedFile(null);
     setImagePreview(null);
     setUploadedImgUrl("");
-    setImageUrlInput("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -151,7 +147,7 @@ function SignUpFormFields() {
     setLoading(true);
 
     try {
-      let finalImage = uploadedImgUrl || imageUrlInput.trim() || undefined;
+      let finalImage = uploadedImgUrl || undefined;
 
       // If user selected file and upload was pending or needs retry
       if (selectedFile && !uploadedImgUrl) {
@@ -161,7 +157,7 @@ function SignUpFormFields() {
           setUploadedImgUrl(finalImage);
         } catch (uploadErr: unknown) {
           const msg = uploadErr instanceof Error ? uploadErr.message : "Image upload failed.";
-          setError(`Image upload failed: ${msg}. You can continue without an image or enter an image URL.`);
+          setError(`Image upload failed: ${msg}. Please try selecting your image again.`);
           setLoading(false);
           setIsUploadingImage(false);
           return;
@@ -170,9 +166,11 @@ function SignUpFormFields() {
         }
       }
 
+      const registeredEmail = email.trim().toLowerCase();
+
       const result = await signUp.email({
         name: name.trim(),
-        email: email.trim(),
+        email: registeredEmail,
         password,
         image: finalImage,
         // @ts-expect-error – Better Auth additionalFields
@@ -180,15 +178,24 @@ function SignUpFormFields() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "Registration failed. Please try again.");
+        const errorMsg = (result.error.message || "").toLowerCase();
+        if (
+          errorMsg.includes("already exists") ||
+          errorMsg.includes("already in use") ||
+          errorMsg.includes("user_already_exists")
+        ) {
+          setError(
+            "An account with this email address already exists. Each email address can be used to create only one account."
+          );
+        } else {
+          setError(result.error.message ?? "Registration failed. Please try again.");
+        }
         setLoading(false);
         // Preserves input on error so user can correct it
         return;
       }
 
       setSuccess("Account created successfully! Redirecting...");
-
-      const registeredEmail = email.trim();
 
       // Reset all form inputs and states upon successful registration
       setName("");
@@ -199,8 +206,6 @@ function SignUpFormFields() {
       setSelectedFile(null);
       setImagePreview(null);
       setUploadedImgUrl("");
-      setImageUrlInput("");
-      setShowUrlInput(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -407,66 +412,35 @@ function SignUpFormFields() {
                 </button>
               </div>
             ) : (
-              /* Image Upload Picker / Option */
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  {/* Native file input for Mobile & Computer */}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    id="profile-file-input"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingImage}
-                    className="flex-1 flex items-center justify-center gap-2 bg-muted/50 dark:bg-muted border border-dashed border-border hover:border-primary/50 hover:bg-muted/80 rounded-full px-4 py-2.5 text-xs font-medium text-foreground transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {isUploadingImage ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin text-primary" />
-                        <span>Uploading to ImgBB...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="size-3.5 text-muted-foreground" />
-                        <span>Upload from device</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowUrlInput(!showUrlInput)}
-                    className="p-2.5 rounded-full bg-muted/40 border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    title={showUrlInput ? "Hide image URL" : "Enter image URL instead"}
-                  >
-                    <ImageIcon className="size-3.5" />
-                  </button>
-                </div>
-
-                {showUrlInput && (
-                  <div className="flex flex-col gap-1 animate-in fade-in duration-150">
-                    <input
-                      type="url"
-                      placeholder="Or paste an image URL (https://...)"
-                      value={imageUrlInput}
-                      onChange={(e) => {
-                        setImageUrlInput(e.target.value);
-                        setImagePreview(e.target.value.trim() || null);
-                        setUploadedImgUrl("");
-                        setSelectedFile(null);
-                      }}
-                      className="w-full bg-muted/40 dark:bg-muted border border-border rounded-full px-4 py-2 text-xs text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring transition"
-                    />
-                    <p className="text-[10px] text-muted-foreground pl-2">
-                      Or use &quot;Upload from device&quot; above to select directly from your computer or phone.
-                    </p>
-                  </div>
-                )}
+              /* Image Upload Picker (Device only) */
+              <div>
+                {/* Native file input for Mobile & Computer */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  id="profile-file-input"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploadingImage}
+                  className="w-full flex items-center justify-center gap-2 bg-muted/50 dark:bg-muted border border-dashed border-border hover:border-primary/50 hover:bg-muted/80 rounded-full px-4 py-2.5 text-xs font-medium text-foreground transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isUploadingImage ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin text-primary" />
+                      <span>Uploading to ImgBB...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="size-3.5 text-muted-foreground" />
+                      <span>Upload from device</span>
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>
@@ -523,6 +497,12 @@ function SignUpFormFields() {
           >
             Sign In
           </Link>
+        </p>
+
+        {/* Vendor Account Instruction */}
+        <p className="text-center text-xs text-muted-foreground/80 mt-3 pt-3 border-t border-border/40 max-w-xs mx-auto leading-relaxed">
+          <span className="font-medium text-foreground/85">Want to register as a Vendor?</span>{" "}
+          Please use the regular email and password form above. Google Sign-In is for customer accounts only.
         </p>
       </div>
     </div>

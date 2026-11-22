@@ -226,6 +226,12 @@ function SignInFormFields() {
             Create an account
           </Link>
         </p>
+
+        {/* Vendor Account Instruction */}
+        <p className="text-center text-xs text-muted-foreground/80 mt-3 pt-3 border-t border-border/40 max-w-xs mx-auto leading-relaxed">
+          <span className="font-medium text-foreground/85">Looking to create a Vendor account?</span>{" "}
+          Please register using the regular email and password Sign Up form. Google Sign-In is for customer accounts only.
+        </p>
       </div>
     </div>
   );
