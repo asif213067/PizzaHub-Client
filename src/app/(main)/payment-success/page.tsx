@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,9 +10,7 @@ import {
   Copy,
   Check,
 } from "lucide-react";
-import { useState } from "react";
 
-// ── Inner component (needs useSearchParams inside Suspense) ──────────────────
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -27,93 +25,93 @@ function PaymentSuccessContent() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-5rem)] bg-[#faf6ee] dark:bg-[#181512] flex items-center justify-center px-4 py-16">
-      <div className="w-full max-w-lg">
+    <main className="min-h-[calc(100vh-5rem)] bg-background flex items-center justify-center px-4 py-10 sm:py-16">
+      <div className="w-full max-w-[440px]">
         {/* Card */}
-        <div className="bg-white dark:bg-[#1e1a16] rounded-3xl shadow-sm border border-[#f0e8d8] dark:border-[#2a2420] overflow-hidden">
-          {/* Green top stripe */}
-          <div className="h-2 bg-gradient-to-r from-green-400 to-emerald-500" />
+        <div className="bg-card text-card-foreground rounded-3xl shadow-lg shadow-black/5 dark:shadow-black/20 border border-border/80 overflow-hidden">
+          {/* Emerald Top Accent */}
+          <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-400" />
 
-          <div className="p-8 sm:p-10 flex flex-col items-center text-center gap-6">
+          <div className="p-6 sm:p-7 flex flex-col items-center text-center gap-4 sm:gap-5">
             {/* Icon */}
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
-                <CheckCircle2 className="w-14 h-14 text-green-500" strokeWidth={1.5} />
+              <div className="size-14 sm:size-16 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
+                <CheckCircle2 className="size-7 sm:size-8" strokeWidth={2} />
               </div>
-              {/* Sparkle dots */}
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-400 opacity-70 animate-ping" />
+              <span className="absolute -top-1 -right-1 size-3 rounded-full bg-emerald-400 opacity-75 animate-ping" />
             </div>
 
-            {/* Heading */}
-            <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-heading font-bold text-[#1c1a17] dark:text-[#f5ede0]">
+            {/* Heading & Subtitle */}
+            <div className="space-y-1.5">
+              <h1 className="text-xl sm:text-2xl font-heading font-bold text-foreground tracking-tight">
                 Payment Successful! 🎉
               </h1>
-              <p className="text-[#6b5e4e] dark:text-[#9e8e7e] text-base leading-relaxed">
-                Your <span className="font-semibold text-[#c22d2f]">Premium subscription</span> is now active.
-                You can now publish unlimited menu items on PizzaHub.
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
+                Your <strong className="text-primary font-semibold">Premium Plan</strong> is now active. You can now publish unlimited menu items on PizzaHub.
               </p>
             </div>
 
-            {/* Note */}
-            <div className="w-full bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-3 text-sm text-amber-700 dark:text-amber-400 text-left flex gap-2">
-              <Star className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
-              <span>
-                It may take a few moments for your subscription status to update across the dashboard.
+            {/* Note / Sync Info */}
+            <div className="w-full bg-amber-500/10 border border-amber-500/20 rounded-2xl px-3.5 py-2.5 text-xs text-amber-800 dark:text-amber-300 text-left flex items-start gap-2.5">
+              <Star className="size-3.5 mt-0.5 shrink-0 text-amber-500 fill-amber-500" />
+              <span className="leading-snug">
+                It may take a few moments for your subscription status to sync across all dashboard pages.
               </span>
             </div>
 
-            {/* Session ID */}
+            {/* Transaction Reference (if session_id exists) */}
             {sessionId && (
-              <div className="w-full">
-                <p className="text-xs font-medium text-[#9e8e7e] dark:text-[#6e5e4e] mb-2 text-left uppercase tracking-wide">
+              <div className="w-full space-y-1.5 text-left">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block px-1">
                   Transaction Reference
-                </p>
-                <div className="flex items-center gap-2 bg-[#fcf8f0] dark:bg-[#15110e] border border-[#e8dcc8] dark:border-[#2a2420] rounded-xl px-4 py-3">
-                  <code className="text-xs text-[#4a3f33] dark:text-[#b0a090] flex-1 truncate font-mono">
+                </span>
+                <div className="flex items-center gap-2 bg-muted/40 border border-border/70 rounded-xl px-3 py-2 transition-colors">
+                  <code className="text-xs font-mono text-foreground/80 flex-1 truncate select-all">
                     {sessionId}
                   </code>
                   <button
+                    type="button"
                     onClick={handleCopy}
-                    className="shrink-0 text-[#9e8e7e] hover:text-[#c22d2f] transition-colors"
-                    title="Copy session ID"
+                    className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
+                    title={copied ? "Copied!" : "Copy reference ID"}
+                    aria-label="Copy reference ID"
                   >
                     {copied ? (
-                      <Check className="w-4 h-4 text-green-500" />
+                      <Check className="size-3.5 text-emerald-500" />
                     ) : (
-                      <Copy className="w-4 h-4" />
+                      <Copy className="size-3.5" />
                     )}
                   </button>
                 </div>
               </div>
             )}
 
-            {/* CTA Buttons */}
-            <div className="w-full flex flex-col sm:flex-row gap-3 pt-2">
+            {/* Action Buttons */}
+            <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
               <Link
                 href="/dashboard/vendor"
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-[#c22d2f] hover:bg-[#a82527] text-white font-semibold text-sm rounded-xl px-5 py-3 transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 bg-[image:var(--gradient-primary)] hover:brightness-105 active:scale-95 text-white font-semibold text-xs sm:text-sm rounded-full py-2.5 px-4 shadow-xs transition-all text-center"
               >
-                <LayoutDashboard className="w-4 h-4" />
-                Go to Dashboard
+                <LayoutDashboard className="size-3.5 sm:size-4" />
+                Dashboard
               </Link>
               <Link
                 href="/dashboard/vendor/subscription"
-                className="flex-1 inline-flex items-center justify-center gap-2 bg-white dark:bg-[#231f1b] border border-[#e8dcc8] dark:border-[#2a2420] hover:border-[#c22d2f] dark:hover:border-[#c22d2f] text-[#4a3f33] dark:text-[#d0c0a8] font-semibold text-sm rounded-xl px-5 py-3 transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 bg-card hover:bg-muted border border-border text-foreground font-semibold text-xs sm:text-sm rounded-full py-2.5 px-4 transition-colors text-center"
               >
-                <Star className="w-4 h-4" />
-                Manage Subscription
+                <Star className="size-3.5 sm:size-4 text-amber-500" />
+                Subscription
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Footer note */}
-        <p className="mt-6 text-center text-xs text-[#9e8e7e] dark:text-[#6e5e4e]">
+        {/* Footer Note */}
+        <p className="mt-5 text-center text-xs text-muted-foreground">
           Questions? Email us at{" "}
           <a
             href="mailto:support@pizzahub.com"
-            className="text-[#c22d2f] hover:underline"
+            className="text-primary hover:underline font-medium"
           >
             support@pizzahub.com
           </a>
@@ -123,13 +121,12 @@ function PaymentSuccessContent() {
   );
 }
 
-// ── Page export (wraps content in Suspense for useSearchParams) ──────────────
 export default function PaymentSuccessPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-[calc(100vh-5rem)] bg-[#faf6ee] dark:bg-[#181512] flex items-center justify-center">
-          <div className="animate-pulse text-[#9e8e7e]">Loading…</div>
+        <main className="min-h-[calc(100vh-5rem)] bg-background flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground text-sm">Loading…</div>
         </main>
       }
     >
