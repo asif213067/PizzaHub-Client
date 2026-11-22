@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, X, Loader2 } from "lucide-react";
 import { CustomerOrder } from "@/types/order";
 
 interface CancelOrderModalProps {
@@ -104,6 +104,7 @@ export function CancelOrderModal({
             disabled={isCancelling}
             className="px-5 py-2.5 rounded-full bg-destructive text-white hover:bg-destructive/90 text-xs sm:text-sm font-semibold shadow-xs transition-all cursor-pointer disabled:opacity-60 flex items-center gap-2"
           >
+            {isCancelling && <Loader2 className="size-3.5 animate-spin" />}
             {isCancelling ? "Cancelling…" : "Yes, Cancel Order"}
           </button>
         </div>

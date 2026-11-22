@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, getStoredToken, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
@@ -208,9 +208,10 @@ export function OrderModal({ item, isOpen, onClose }: OrderModalProps) {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 px-5 rounded-full bg-[image:var(--gradient-primary)] hover:brightness-105 active:scale-[0.98] text-white font-semibold text-sm shadow-md transition-all cursor-pointer disabled:opacity-60 text-center"
+              className="w-full py-2.5 px-5 rounded-full bg-[image:var(--gradient-primary)] hover:brightness-105 active:scale-[0.98] text-white font-semibold text-sm shadow-md transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              {submitting ? "Placing Order…" : "Place Order"}
+              {submitting && <Loader2 className="size-4 animate-spin" />}
+              <span>{submitting ? "Placing Order…" : "Place Order"}</span>
             </button>
           </div>
         </form>
