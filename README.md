@@ -372,7 +372,7 @@ Features planned for upcoming releases:
 
 ## License & Repository
 
-This project was developed for educational and portfolio demonstration purposes as part of the Programming Hero curriculum.
+This project was developed for educational and portfolio demonstration purposes.
 
-- **Repository:** Private / Academic Assignment
-- **Backend Service:** [PizzaHub Express Server](../pizzahub-server)
+- **Repository:** https://github.com/asif213067/PizzaHub-Client
+- **Backend Service:** [PizzaHub Express Server](https://github.com/asif213067/PizzaHub-Server)
