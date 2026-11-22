@@ -5,8 +5,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn } from "@/lib/auth-client";
 import { syncAuthToken } from "@/lib/api-client";
+import { uploadToImgBB } from "@/lib/upload-imgbb";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertCircle, Upload, X, ImageIcon } from "lucide-react";
+import {
+  CheckCircle2,
+  AlertCircle,
+  Upload,
+  X,
+  ImageIcon,
+  Eye,
+  EyeOff,
+  Loader2,
+  Check,
+} from "lucide-react";
+import { toast } from "sonner";
 
 function GoogleIcon() {
   return (
@@ -49,11 +61,14 @@ function SignUpFormFields() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<Role>("customer");
 
   // Profile image upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadedImgUrl, setUploadedImgUrl] = useState<string>("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
 
@@ -62,31 +77,52 @@ function SignUpFormFields() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Handle image selected from computer or mobile file picker
-  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+  // Handle image selected from device and upload to ImgBB
+  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Selected image must be under 2MB.");
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Selected image must be under 5MB.");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files (PNG, JPG, WEBP, GIF) are supported.");
       return;
     }
 
     setError(null);
     setSelectedFile(file);
 
-    // Create a local preview
+    // Create immediate local preview
     const reader = new FileReader();
     reader.onload = () => {
       setImagePreview(reader.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Upload to ImgBB immediately
+    setIsUploadingImage(true);
+    try {
+      const url = await uploadToImgBB(file);
+      setUploadedImgUrl(url);
+      setImagePreview(url);
+      toast.success("Profile image uploaded successfully!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload image to ImgBB.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setIsUploadingImage(false);
+    }
   }
 
   function handleRemoveImage() {
     setSelectedFile(null);
     setImagePreview(null);
+    setUploadedImgUrl("");
     setImageUrlInput("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -105,14 +141,34 @@ function SignUpFormFields() {
       return;
     }
 
+    if (isUploadingImage) {
+      setError("Please wait for your profile image to finish uploading.");
+      return;
+    }
+
     // Role security check: strictly ensure customer or vendor
     const safeRole: Role = role === "vendor" ? "vendor" : "customer";
-
     setLoading(true);
 
     try {
-      // Determine final image URL or data preview if provided
-      const finalImage = imagePreview || imageUrlInput.trim() || undefined;
+      let finalImage = uploadedImgUrl || imageUrlInput.trim() || undefined;
+
+      // If user selected file and upload was pending or needs retry
+      if (selectedFile && !uploadedImgUrl) {
+        try {
+          setIsUploadingImage(true);
+          finalImage = await uploadToImgBB(selectedFile);
+          setUploadedImgUrl(finalImage);
+        } catch (uploadErr: unknown) {
+          const msg = uploadErr instanceof Error ? uploadErr.message : "Image upload failed.";
+          setError(`Image upload failed: ${msg}. You can continue without an image or enter an image URL.`);
+          setLoading(false);
+          setIsUploadingImage(false);
+          return;
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
 
       const result = await signUp.email({
         name: name.trim(),
@@ -126,13 +182,31 @@ function SignUpFormFields() {
       if (result.error) {
         setError(result.error.message ?? "Registration failed. Please try again.");
         setLoading(false);
+        // Preserves input on error so user can correct it
         return;
       }
 
       setSuccess("Account created successfully! Redirecting...");
 
+      const registeredEmail = email.trim();
+
+      // Reset all form inputs and states upon successful registration
+      setName("");
+      setEmail("");
+      setPassword("");
+      setShowPassword(false);
+      setRole("customer");
+      setSelectedFile(null);
+      setImagePreview(null);
+      setUploadedImgUrl("");
+      setImageUrlInput("");
+      setShowUrlInput(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       // Sync verified JWT with Express backend
-      await syncAuthToken(email.trim());
+      await syncAuthToken(registeredEmail);
 
       setTimeout(() => {
         const roleDashboard =
@@ -246,58 +320,87 @@ function SignUpFormFields() {
             />
           </div>
 
-          {/* Password */}
+          {/* Password with Visibility Toggle */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-card-foreground pl-1" htmlFor="signup-password">
               Password
             </label>
-            <input
-              id="signup-password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="Create a password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-muted/50 dark:bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
-            />
+            <div className="relative flex items-center">
+              <input
+                id="signup-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                placeholder="Create a password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-muted/50 dark:bg-muted border border-border rounded-full pl-4 pr-11 py-2.5 text-sm text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-1 rounded-full focus:outline-none"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
             <p className="text-[11px] text-muted-foreground pl-2 mt-0.5">
               Must be at least 6 characters, with one uppercase and one lowercase letter.
             </p>
           </div>
 
-          {/* Profile Image (Optional - Device Upload / Link) */}
+          {/* Profile Image (Local ImgBB Upload & URL Option) */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between pl-1">
               <label className="text-xs font-semibold text-card-foreground">
                 Profile Image
               </label>
-              <span className="text-[11px] text-muted-foreground">Optional (can skip)</span>
+              <span className="text-[11px] text-muted-foreground">Optional</span>
             </div>
 
             {imagePreview ? (
               /* Selected Image Preview */
               <div className="flex items-center gap-3 bg-muted/40 border border-border rounded-2xl p-2.5 animate-in fade-in duration-150">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt="Profile Preview"
-                  className="size-11 rounded-full object-cover border border-border shadow-2xs"
-                />
+                <div className="relative size-12 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreview}
+                    alt="Profile Preview"
+                    className="size-12 rounded-full object-cover border border-border shadow-2xs"
+                  />
+                  {isUploadingImage && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <Loader2 className="size-5 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-card-foreground truncate">
                     {selectedFile ? selectedFile.name : "Custom profile picture"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {selectedFile
-                      ? `${(selectedFile.size / 1024).toFixed(0)} KB · Ready to save`
-                      : "Image attached"}
+                  <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    {isUploadingImage ? (
+                      <span className="text-primary font-medium flex items-center gap-1">
+                        <Loader2 className="size-3 animate-spin" />
+                        Uploading to ImgBB...
+                      </span>
+                    ) : uploadedImgUrl ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <Check className="size-3" />
+                        Uploaded to ImgBB
+                      </span>
+                    ) : (
+                      selectedFile ? `${(selectedFile.size / 1024).toFixed(0)} KB` : "Image URL attached"
+                    )}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleRemoveImage}
-                  className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-muted transition-colors cursor-pointer"
+                  disabled={isUploadingImage}
+                  className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-muted transition-colors cursor-pointer disabled:opacity-40"
                   title="Remove image"
                 >
                   <X className="size-4" />
@@ -319,10 +422,20 @@ function SignUpFormFields() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex-1 flex items-center justify-center gap-2 bg-muted/50 dark:bg-muted border border-dashed border-border hover:border-primary/50 hover:bg-muted/80 rounded-full px-4 py-2.5 text-xs font-medium text-foreground transition-all cursor-pointer"
+                    disabled={isUploadingImage}
+                    className="flex-1 flex items-center justify-center gap-2 bg-muted/50 dark:bg-muted border border-dashed border-border hover:border-primary/50 hover:bg-muted/80 rounded-full px-4 py-2.5 text-xs font-medium text-foreground transition-all cursor-pointer disabled:opacity-50"
                   >
-                    <Upload className="size-3.5 text-muted-foreground" />
-                    <span>Upload from device</span>
+                    {isUploadingImage ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin text-primary" />
+                        <span>Uploading to ImgBB...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="size-3.5 text-muted-foreground" />
+                        <span>Upload from device</span>
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -336,16 +449,23 @@ function SignUpFormFields() {
                 </div>
 
                 {showUrlInput && (
-                  <input
-                    type="url"
-                    placeholder="Or paste an image URL (https://...)"
-                    value={imageUrlInput}
-                    onChange={(e) => {
-                      setImageUrlInput(e.target.value);
-                      setImagePreview(e.target.value.trim() || null);
-                    }}
-                    className="w-full bg-muted/40 dark:bg-muted border border-border rounded-full px-4 py-2 text-xs text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring transition animate-in fade-in duration-150"
-                  />
+                  <div className="flex flex-col gap-1 animate-in fade-in duration-150">
+                    <input
+                      type="url"
+                      placeholder="Or paste an image URL (https://...)"
+                      value={imageUrlInput}
+                      onChange={(e) => {
+                        setImageUrlInput(e.target.value);
+                        setImagePreview(e.target.value.trim() || null);
+                        setUploadedImgUrl("");
+                        setSelectedFile(null);
+                      }}
+                      className="w-full bg-muted/40 dark:bg-muted border border-border rounded-full px-4 py-2 text-xs text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-ring transition"
+                    />
+                    <p className="text-[10px] text-muted-foreground pl-2">
+                      Or use &quot;Upload from device&quot; above to select directly from your computer or phone.
+                    </p>
+                  </div>
                 )}
               </div>
             )}
@@ -387,7 +507,7 @@ function SignUpFormFields() {
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={loading || googleLoading}
+            disabled={loading || googleLoading || isUploadingImage}
             className="w-full bg-[image:var(--gradient-primary)] hover:brightness-105 active:brightness-95 text-white rounded-full py-2.5 font-semibold text-sm shadow-md transition-all mt-2 cursor-pointer"
           >
             {loading ? "Creating account…" : "Create Account"}

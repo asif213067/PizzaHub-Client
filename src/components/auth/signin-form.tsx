@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
 import { syncAuthToken } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 function GoogleIcon() {
   return (
@@ -39,6 +39,7 @@ function SignInFormFields() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(
     blockedParam ? "Your account has been blocked. Please contact support." : null
   );
@@ -61,6 +62,7 @@ function SignInFormFields() {
       if (result.error) {
         setError(result.error.message ?? "Invalid email or password.");
         setLoading(false);
+        // Preserves input on error so user can correct it
         return;
       }
 
@@ -75,8 +77,14 @@ function SignInFormFields() {
         return;
       }
 
+      // Reset form fields and visibility upon successful authentication
+      const userEmail = email;
+      setEmail("");
+      setPassword("");
+      setShowPassword(false);
+
       // Sync verified JWT with Express backend
-      await syncAuthToken(email);
+      await syncAuthToken(userEmail);
 
       const role = user?.role;
       setTimeout(() => {
@@ -176,16 +184,27 @@ function SignInFormFields() {
             <label className="text-xs font-semibold text-card-foreground pl-1" htmlFor="signin-password">
               Password
             </label>
-            <input
-              id="signin-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Your password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-muted/50 dark:bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
-            />
+            <div className="relative flex items-center">
+              <input
+                id="signin-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Your password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-muted/50 dark:bg-muted border border-border rounded-full pl-4 pr-11 py-2.5 text-sm text-card-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer p-1 rounded-full focus:outline-none"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </div>
 
           <Button
