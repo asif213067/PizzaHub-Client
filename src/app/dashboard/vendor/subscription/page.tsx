@@ -5,13 +5,13 @@ import {
   Check,
   Zap,
   Star,
-  Calendar,
   CreditCard,
   Download,
-  ChevronRight,
   Sparkles,
   Loader2,
   AlertCircle,
+  ExternalLink,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -23,6 +23,7 @@ interface SubscriptionStatus {
   subscriptionPlan: "free" | "premium";
   billingCycle: "monthly" | "yearly" | null;
   subscriptionExpiresAt: string | null;
+  isCancelled?: boolean;
 }
 
 interface Transaction {
@@ -32,6 +33,7 @@ interface Transaction {
   amount: string;
   status: "paid" | "failed" | "pending";
   stripeSessionId?: string | null;
+  receiptUrl?: string | null;
 }
 
 const FEATURES_FREE = [
@@ -92,7 +94,8 @@ export default function VendorSubscriptionPage() {
   const [status, setStatus] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<"monthly" | "yearly" | null>(null);
-  const [downgradeLoading, setDowngradeLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [txPage, setTxPage] = useState(1);
 
@@ -113,14 +116,14 @@ export default function VendorSubscriptionPage() {
       if (statusRes.status === "fulfilled" && statusRes.value?.data) {
         setStatus(statusRes.value.data);
       } else {
-        setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null });
+        setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null, isCancelled: false });
       }
 
       if (txRes.status === "fulfilled" && Array.isArray(txRes.value?.data)) {
         setTransactions(txRes.value.data);
       }
     } catch {
-      setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null });
+      setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null, isCancelled: false });
     } finally {
       setLoading(false);
     }
@@ -130,13 +133,48 @@ export default function VendorSubscriptionPage() {
     fetchData();
   }, [fetchData]);
 
+  // Derived values from real API data
+  const plan = status?.subscriptionPlan ?? "free";
+  const billingCycle = status?.billingCycle ?? null;
+  const expiresAt = status?.subscriptionExpiresAt ?? null;
+  const isCancelled = Boolean(status?.isCancelled);
+  const isPremium = plan === "premium";
+
+  const currentPlanLabel = isPremium
+    ? billingCycle === "yearly" ? "Premium Yearly" : "Premium Monthly"
+    : "Free";
+
+  const totalDays = billingCycle === "yearly" ? 365 : 30;
+  const daysLeft = daysUntil(expiresAt);
+  const daysElapsed = Math.max(0, totalDays - daysLeft);
+  const progressPct = isPremium ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0;
+
+  // Approximate remaining time formatted
+  const remainingApprox = billingCycle === "yearly"
+    ? daysLeft > 30 ? `approximately ${Math.ceil(daysLeft / 30)} months` : `${daysLeft} days`
+    : `${daysLeft} days`;
+
+  // Started date
+  const startedAt = expiresAt
+    ? new Date(new Date(expiresAt).getTime() - totalDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
   // Stripe Checkout
-  async function handleUpgrade(billingCycle: "monthly" | "yearly") {
+  async function handleUpgrade(targetCycle: "monthly" | "yearly") {
+    // Prevent duplicate subscriptions if user already has an active premium subscription
+    if (isPremium) {
+      const activeCycle = billingCycle === "yearly" ? "Yearly" : "Monthly";
+      toast.info(
+        `You already have an active Premium subscription. Your current plan is ${activeCycle}. You can subscribe again after your current subscription expires.`
+      );
+      return;
+    }
+
     try {
-      setCheckoutLoading(billingCycle);
+      setCheckoutLoading(targetCycle);
       const res = await api.post<{ success: boolean; url?: string; message?: string }>(
         "/api/payments/create-checkout-session",
-        { billingCycle }
+        { billingCycle: targetCycle }
       );
 
       if (res?.success && res.url) {
@@ -152,47 +190,32 @@ export default function VendorSubscriptionPage() {
     }
   }
 
-  // Downgrade to Free
-  async function handleDowngrade() {
-    if (!confirm("Are you sure you want to downgrade to the Free plan? You will be limited to 3 active menu items.")) {
-      return;
-    }
+  // Cancel Subscription (Preserves access until period ends)
+  async function handleConfirmCancel() {
     try {
-      setDowngradeLoading(true);
-      const res = await api.post<{ success: boolean; message?: string }>("/api/payments/cancel-subscription");
+      setCancelLoading(true);
+      const res = await api.post<{ success: boolean; message?: string }>(
+        "/api/payments/cancel-subscription"
+      );
+
       if (res?.success) {
-        toast.success(res.message || "Subscription downgraded to Free plan.");
+        toast.success(
+          res.message ||
+            `Your ${currentPlanLabel} subscription has been cancelled. You still have ${remainingApprox} of Premium access remaining. Your account will return to the Free plan when your subscription period expires.`,
+          { duration: 7000 }
+        );
+        setShowCancelModal(false);
         await fetchData();
       } else {
-        toast.error(res?.message || "Failed to downgrade subscription.");
+        toast.error(res?.message || "Failed to cancel subscription.");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to cancel subscription.";
       toast.error(msg);
     } finally {
-      setDowngradeLoading(false);
+      setCancelLoading(false);
     }
   }
-
-  // Derived values from real API data
-  const plan = status?.subscriptionPlan ?? "free";
-  const billingCycle = status?.billingCycle ?? null;
-  const expiresAt = status?.subscriptionExpiresAt ?? null;
-  const isPremium = plan === "premium";
-
-  const currentPlanLabel = isPremium
-    ? billingCycle === "yearly" ? "Premium Yearly" : "Premium Monthly"
-    : "Free";
-
-  const totalDays = billingCycle === "yearly" ? 365 : 30;
-  const daysLeft = daysUntil(expiresAt);
-  const daysElapsed = Math.max(0, totalDays - daysLeft);
-  const progressPct = isPremium ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0;
-
-  // Started date (approximate from expiresAt minus billing period)
-  const startedAt = expiresAt
-    ? new Date(new Date(expiresAt).getTime() - totalDays * 24 * 60 * 60 * 1000).toISOString()
-    : null;
 
   // Transactions pagination
   const totalTxPages = Math.max(1, Math.ceil(transactions.length / TX_PAGE_SIZE));
@@ -238,10 +261,17 @@ export default function VendorSubscriptionPage() {
                     {currentPlanLabel}
                   </h2>
                   {isPremium ? (
-                    <span className="bg-emerald-100/90 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900 rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
-                      Active
-                    </span>
+                    isCancelled ? (
+                      <span className="bg-amber-100/90 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-900 rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1">
+                        <span className="size-1.5 rounded-full bg-amber-500" />
+                        Cancelled · Active until {formatDate(expiresAt)}
+                      </span>
+                    ) : (
+                      <span className="bg-emerald-100/90 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-900 rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1">
+                        <span className="size-1.5 rounded-full bg-emerald-500" />
+                        Active
+                      </span>
+                    )
                   ) : (
                     <span className="bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 rounded-full px-2.5 py-0.5 text-[11px] font-semibold">
                       Free
@@ -249,9 +279,20 @@ export default function VendorSubscriptionPage() {
                   )}
                 </div>
                 {isPremium && expiresAt && (
-                  <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
-                    <span className="text-foreground font-bold">{daysLeft}</span> days left
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs sm:text-sm font-semibold text-muted-foreground">
+                      <span className="text-foreground font-bold">{daysLeft}</span> days left
+                    </span>
+                    {!isCancelled && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCancelModal(true)}
+                        className="text-xs text-rose-600 dark:text-rose-400 hover:underline font-medium cursor-pointer"
+                      >
+                        Cancel Plan
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -267,20 +308,31 @@ export default function VendorSubscriptionPage() {
                 </div>
               )}
 
-              {/* Billing Meta */}
+              {/* Billing Meta or Cancelled Notice */}
               {isPremium ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-                  {[
-                    { label: "Plan", value: currentPlanLabel },
-                    { label: "Started on", value: formatDate(startedAt) },
-                    { label: "Expires on", value: formatDate(expiresAt) },
-                    { label: "Billed", value: billingCycle === "yearly" ? "Annually" : "Monthly" },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
-                      <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{value}</p>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+                    {[
+                      { label: "Plan", value: currentPlanLabel },
+                      { label: "Started on", value: formatDate(startedAt) },
+                      { label: "Expires on", value: formatDate(expiresAt) },
+                      { label: "Billed", value: billingCycle === "yearly" ? "Annually" : "Monthly" },
+                    ].map(({ label, value }) => (
+                      <div key={label}>
+                        <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
+                        <p className="text-xs sm:text-sm font-semibold text-foreground mt-0.5">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {isCancelled && (
+                    <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
+                      <AlertCircle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        Your subscription has been cancelled. You still have <strong>{remainingApprox}</strong> of Premium access remaining with all features active. Your account will automatically return to the Free plan when your subscription period expires on <strong>{formatDate(expiresAt)}</strong>.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               ) : (
                 <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 rounded-2xl">
@@ -320,21 +372,17 @@ export default function VendorSubscriptionPage() {
                 <div className="w-full text-center bg-[#fce8cc] dark:bg-[#3d2a0e] text-[#9a5f1a] dark:text-amber-300 font-semibold text-xs py-2.5 rounded-full">
                   Included with every account
                 </div>
+              ) : isCancelled ? (
+                <div className="w-full text-center bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/50 font-semibold text-xs py-2.5 rounded-full">
+                  Cancellation Scheduled
+                </div>
               ) : (
                 <button
                   type="button"
-                  disabled={downgradeLoading}
-                  onClick={handleDowngrade}
-                  className="w-full border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/80 font-semibold text-xs py-2.5 rounded-full transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  onClick={() => setShowCancelModal(true)}
+                  className="w-full border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:text-rose-600 hover:border-rose-300 dark:hover:border-rose-900 font-semibold text-xs py-2.5 rounded-full transition-all cursor-pointer"
                 >
-                  {downgradeLoading ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      <span>Downgrading...</span>
-                    </>
-                  ) : (
-                    <span>Downgrade to Free</span>
-                  )}
+                  Cancel Subscription
                 </button>
               )}
             </div>
@@ -365,13 +413,25 @@ export default function VendorSubscriptionPage() {
 
             <div className="mt-auto">
               {isPremium && billingCycle === "monthly" ? (
-                <div className="w-full text-center bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-semibold text-xs py-2.5 rounded-full">
-                  Current Plan
+                <div className="w-full text-center bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 font-semibold text-xs py-2.5 rounded-full">
+                  {isCancelled ? `Cancels ${formatDate(expiresAt)}` : "Current Plan"}
                 </div>
+              ) : isPremium ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toast.info(
+                      "You already have an active Premium subscription. Your current plan is Yearly. You can subscribe again after your current subscription expires."
+                    )
+                  }
+                  className="w-full bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 font-semibold text-xs py-2.5 rounded-full cursor-not-allowed"
+                >
+                  Active Premium Plan
+                </button>
               ) : (
                 <button
                   type="button"
-                  disabled={!!checkoutLoading || downgradeLoading}
+                  disabled={!!checkoutLoading}
                   onClick={() => handleUpgrade("monthly")}
                   className="w-full bg-[#c22d2f] hover:bg-[#a82527] text-white font-bold text-xs py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                 >
@@ -424,13 +484,25 @@ export default function VendorSubscriptionPage() {
 
             <div className="mt-auto">
               {isPremium && billingCycle === "yearly" ? (
-                <div className="w-full text-center bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 font-semibold text-xs py-2.5 rounded-full">
-                  Current Plan
+                <div className="w-full text-center bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 border border-stone-200 dark:border-stone-700 font-semibold text-xs py-2.5 rounded-full">
+                  {isCancelled ? `Cancels ${formatDate(expiresAt)}` : "Current Plan"}
                 </div>
+              ) : isPremium ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toast.info(
+                      "You already have an active Premium subscription. Your current plan is Monthly. You can subscribe again after your current subscription expires."
+                    )
+                  }
+                  className="w-full bg-stone-100 dark:bg-stone-800 text-stone-400 dark:text-stone-500 font-semibold text-xs py-2.5 rounded-full cursor-not-allowed"
+                >
+                  Active Premium Plan
+                </button>
               ) : (
                 <button
                   type="button"
-                  disabled={!!checkoutLoading || downgradeLoading}
+                  disabled={!!checkoutLoading}
                   onClick={() => handleUpgrade("yearly")}
                   className="w-full bg-[#c22d2f] hover:bg-[#a82527] text-white font-bold text-xs py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
                 >
@@ -461,11 +533,18 @@ export default function VendorSubscriptionPage() {
             </div>
             <button
               type="button"
-              onClick={() => toast.info("Invoice download will be available via Stripe Billing Portal.")}
+              onClick={() => {
+                const firstWithReceipt = transactions.find((t) => t.receiptUrl);
+                if (firstWithReceipt?.receiptUrl) {
+                  window.open(firstWithReceipt.receiptUrl, "_blank");
+                } else {
+                  toast.info("Invoice receipts are generated automatically upon completed Stripe payments.");
+                }
+              }}
               className="flex items-center gap-1.5 text-xs font-semibold text-[#c22d2f] hover:underline cursor-pointer"
             >
               <Download className="size-3.5" />
-              Download all
+              Download receipt
             </button>
           </div>
 
@@ -474,7 +553,7 @@ export default function VendorSubscriptionPage() {
               <CreditCard className="size-8 mx-auto text-stone-300 dark:text-stone-600 mb-2" />
               <p className="text-sm font-semibold text-foreground">No transactions recorded yet</p>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                Once you purchase or update a Premium subscription, your Stripe confirmation receipts will appear here automatically.
+                Once you purchase a Premium subscription, your verified Stripe confirmation receipts will appear here automatically.
               </p>
             </div>
           ) : (
@@ -498,20 +577,28 @@ export default function VendorSubscriptionPage() {
                       <StatusBadge status={tx.status} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     {tx.stripeSessionId ? (
                       <span className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">
                         Ref: {tx.stripeSessionId}
                       </span>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => toast.info("Invoice receipt can be downloaded once generated by Stripe.")}
-                      className="flex items-center gap-1 text-[11px] sm:text-xs font-semibold text-stone-500 hover:text-foreground transition-colors cursor-pointer ml-auto"
-                    >
-                      <Download className="size-3" />
-                      Receipt
-                    </button>
+                    {tx.receiptUrl ? (
+                      <a
+                        href={tx.receiptUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-[#c22d2f] hover:underline transition-colors ml-auto"
+                      >
+                        <Download className="size-3" />
+                        Download Receipt
+                        <ExternalLink className="size-2.5 opacity-60" />
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        Receipt via Stripe
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -526,7 +613,7 @@ export default function VendorSubscriptionPage() {
                   Showing {txStart} to {txEnd} of {transactions.length} transactions
                 </p>
                 <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  Records come from Stripe confirmations and cannot be edited.
+                  Records come directly from Stripe confirmations and cannot be edited.
                 </p>
               </div>
               {totalTxPages > 1 && (
@@ -567,24 +654,68 @@ export default function VendorSubscriptionPage() {
           )}
         </div>
 
-        {/* ── Billing Note ─────────────────────────────────────────────── */}
-        <div className="bg-[#faf6ee] dark:bg-stone-900/40 border border-stone-200/60 dark:border-stone-800 rounded-2xl px-5 py-4 flex items-start sm:items-center gap-3">
-          <CreditCard className="size-4 text-muted-foreground shrink-0 mt-0.5 sm:mt-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-foreground">Need to manage your billing?</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Full Stripe billing portal, invoice downloads, and payment method management are handled securely through Stripe.
-            </p>
+        {/* ── Cancellation Confirmation Modal ───────────────────────────── */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-white dark:bg-card border border-stone-200 dark:border-stone-800 rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center shrink-0">
+                  <AlertCircle className="size-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-heading text-lg font-bold text-foreground">
+                    Cancel {currentPlanLabel}?
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Please review what happens after cancellation
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-[#faf6ee] dark:bg-stone-900/40 border border-stone-200/70 dark:border-stone-800 rounded-2xl p-4 text-xs space-y-2 text-stone-700 dark:text-stone-300">
+                <p>
+                  • You will <strong>keep full Premium benefits</strong> (unlimited active menu items, premium badge, featured placement) until{" "}
+                  <strong>{formatDate(expiresAt)}</strong>.
+                </p>
+                <p>
+                  • Approximately <strong>{remainingApprox}</strong> of Premium access remains.
+                </p>
+                <p>
+                  • Your account will automatically return to the Free plan when this period expires.
+                </p>
+                <p>
+                  • No further charges will be made. Refunds are not provided for remaining paid periods.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  disabled={cancelLoading}
+                  onClick={() => setShowCancelModal(false)}
+                  className="px-4 py-2.5 rounded-full text-xs font-semibold border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer disabled:opacity-50"
+                >
+                  Keep Subscription
+                </button>
+                <button
+                  type="button"
+                  disabled={cancelLoading}
+                  onClick={handleConfirmCancel}
+                  className="px-4 py-2.5 rounded-full text-xs font-bold bg-[#c22d2f] hover:bg-[#a82527] text-white shadow-xs cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {cancelLoading ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>Cancelling...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Cancellation</span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => toast.info("Stripe Customer Billing Portal link will be available here.")}
-            className="flex items-center gap-1 text-xs font-semibold text-[#c22d2f] hover:underline shrink-0 cursor-pointer"
-          >
-            <Calendar className="size-3.5" />
-            Manage Billing
-          </button>
-        </div>
+        )}
       </main>
     </div>
   );
