@@ -173,8 +173,18 @@ export default function VendorItemsPage() {
 
   // Toggle active switch
   const handleToggleActive = async (item: VendorMenuItem) => {
+    const rawStatus = (item.status || "").toLowerCase();
+    if (rawStatus === "pending") {
+      toast.error("This item is pending approval and cannot be made available yet.");
+      return;
+    }
+    if (rawStatus === "rejected") {
+      toast.error("This item was rejected and cannot be made available to customers.");
+      return;
+    }
+
     const isCurrentlyActive =
-      item.isActive !== false && item.status === "approved";
+      item.isActive !== false && (rawStatus === "approved" || rawStatus === "accepted");
     const willActivate = !isCurrentlyActive;
 
     // Free tier enforcement: max 3 active items
@@ -219,8 +229,12 @@ export default function VendorItemsPage() {
           ? `"${item.itemName}" is now available to customers.`
           : `"${item.itemName}" is now inactive and hidden.`
       );
-    } catch {
-      toast.error("Failed to update item availability. Please try again.");
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to update item availability. Please try again.";
+      toast.error(msg);
     } finally {
       setTogglingId(null);
     }

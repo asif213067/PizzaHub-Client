@@ -155,6 +155,21 @@ export default function VendorAddItemPage() {
     setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  const resetForm = () => {
+    setItemName("");
+    setCategory("Classic Pizzas");
+    setDescription("");
+    setPrice("");
+    setLocation("");
+    setImages([]);
+    setError(null);
+    setUploadingImages(false);
+    setUploadProgress("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   // Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,9 +232,11 @@ export default function VendorAddItemPage() {
       }>("/api/menu", payload);
 
       if (res?.success) {
+        resetForm();
         toast.success(
           "Menu item submitted! It is now pending admin approval."
         );
+        router.refresh();
         router.push("/dashboard/vendor/items");
       } else {
         throw new Error(res?.message || "Failed to create menu item.");

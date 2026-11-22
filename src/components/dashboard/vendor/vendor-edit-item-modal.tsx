@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
+import { X, Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { uploadToImgBB } from "@/lib/upload-imgbb";
 import { VendorMenuItem } from "@/types/vendor";
 
 interface VendorEditItemModalProps {
@@ -33,8 +35,12 @@ export function VendorEditItemModal({
   const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (item) {
@@ -43,21 +49,53 @@ export function VendorEditItemModal({
       setPrice(String(item.price ?? ""));
       setLocation(item.location || "");
       setDescription(item.description || "");
+
+      const itemImages =
+        Array.isArray(item.images) && item.images.length > 0
+          ? item.images
+          : typeof (item as unknown as { image?: string }).image === "string" && (item as unknown as { image?: string }).image
+          ? [(item as unknown as { image?: string }).image!]
+          : [];
+      setImages(itemImages);
       setError(null);
     }
   }, [item]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !submitting) onClose();
+      if (e.key === "Escape" && !submitting && !uploadingImage) onClose();
     }
     if (isOpen) {
       window.addEventListener("keydown", handleKeyDown);
     }
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, submitting, onClose]);
+  }, [isOpen, submitting, uploadingImage, onClose]);
 
   if (!isOpen || !item) return null;
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    try {
+      setUploadingImage(true);
+      setError(null);
+      const url = await uploadToImgBB(file);
+      setImages([url]);
+      toast.success("Image uploaded successfully!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to upload image.";
+      toast.error(msg);
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImages([]);
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +130,7 @@ export function VendorEditItemModal({
           price: numPrice,
           location: location.trim(),
           description: description.trim(),
+          images,
         }
       );
 
@@ -121,7 +160,7 @@ export function VendorEditItemModal({
         <button
           type="button"
           onClick={onClose}
-          disabled={submitting}
+          disabled={submitting || uploadingImage}
           className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
           aria-label="Close dialog"
         >
@@ -150,6 +189,78 @@ export function VendorEditItemModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+          {/* Image Section */}
+          <div className="space-y-1.5 pb-1">
+            <label className="font-semibold text-foreground block">
+              Item Image
+            </label>
+            <div className="flex items-center gap-3">
+              {/* Image Preview */}
+              <div className="relative size-16 sm:size-20 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 shrink-0 border border-border">
+                {images.length > 0 ? (
+                  <Image
+                    src={images[0]}
+                    alt={itemName || "Item Preview"}
+                    fill
+                    className="object-cover"
+                    sizes="80px"
+                  />
+                ) : (
+                  <div className="size-full flex flex-col items-center justify-center text-muted-foreground p-1 text-center">
+                    <Camera className="size-5 mb-1" />
+                    <span className="text-[10px]">No Image</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload/Replace and Remove Buttons */}
+              <div className="flex flex-col gap-1.5 min-w-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    disabled={uploadingImage || submitting}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingImage ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" />
+                        <span>Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera className="size-3.5" />
+                        <span>{images.length > 0 ? "Replace Image" : "Upload Image"}</span>
+                      </>
+                    )}
+                  </button>
+
+                  {images.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={uploadingImage || submitting}
+                      onClick={handleRemoveImage}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Upload via ImgBB (PNG, JPG, WEBP)
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Item Name */}
           <div className="space-y-1">
             <label
@@ -164,7 +275,7 @@ export function VendorEditItemModal({
               required
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
-              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
+              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
             />
           </div>
 
@@ -181,7 +292,7 @@ export function VendorEditItemModal({
                 id="edit-item-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition cursor-pointer"
+                className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition cursor-pointer"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -206,7 +317,7 @@ export function VendorEditItemModal({
                 required
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
+                className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
               />
             </div>
           </div>
@@ -226,7 +337,7 @@ export function VendorEditItemModal({
               placeholder="e.g. Downtown, Pabna"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
+              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition"
             />
           </div>
 
@@ -244,7 +355,7 @@ export function VendorEditItemModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the crust, toppings, cheese, and special preparation..."
-              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition resize-none"
+              className="w-full bg-muted/40 dark:bg-muted/30 border border-border rounded-xl px-3.5 py-2 text-sm text-foreground outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition resize-none"
             />
           </div>
 
@@ -253,7 +364,7 @@ export function VendorEditItemModal({
             <button
               type="button"
               onClick={onClose}
-              disabled={submitting}
+              disabled={submitting || uploadingImage}
               className="px-5 py-2 rounded-full border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancel
@@ -261,7 +372,7 @@ export function VendorEditItemModal({
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || uploadingImage}
               className="px-6 py-2 rounded-full bg-[#c22d2f] hover:bg-[#a82527] active:scale-95 text-white font-semibold text-xs transition-all shadow-xs disabled:opacity-60 cursor-pointer"
             >
               {submitting ? "Saving…" : "Save Changes"}

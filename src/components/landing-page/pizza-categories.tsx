@@ -79,7 +79,7 @@ export function PizzaCategories() {
               return (
                 <Link
                   key={cat.id}
-                  href={`/menu?category=${cat.slug}`}
+                  href={`/menu`}
                   className="group flex flex-col items-center justify-center size-26 sm:size-28 md:size-32 rounded-full bg-white/10 hover:bg-white/18 active:scale-95 border border-white/15 backdrop-blur-xs transition-all duration-200 cursor-pointer p-2.5 text-center shadow-2xs hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                 >
                   {/* Icon */}
