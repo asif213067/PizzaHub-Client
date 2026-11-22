@@ -15,6 +15,21 @@ export interface OrderVendor {
   image?: string;
 }
 
+export interface OrderReview {
+  _id?: string;
+  orderId?: string;
+  itemId?: string;
+  vendorId?: string;
+  customerId?: string;
+  customerName?: string;
+  customerImage?: string;
+  rating: number;
+  comment: string;
+  verifiedPurchase?: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
 export interface CustomerOrder {
   _id: string;
   itemId?: string;
@@ -28,6 +43,7 @@ export interface CustomerOrder {
   updatedAt?: string;
   item?: OrderItem;
   vendor?: OrderVendor;
+  review?: OrderReview | null;
 }
 
 export interface OrderStats {

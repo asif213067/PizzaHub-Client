@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { MenuItem } from "@/components/shared/pizza-card";
+import { CustomerReviewsSection } from "./customer-reviews-section";
 import { RelatedVendorItems } from "./related-vendor-items";
 import { OrderModal } from "./order-modal";
 import { useSession } from "@/lib/auth-client";
@@ -264,6 +265,9 @@ export function ItemDetailsClient({ item }: ItemDetailsClientProps) {
             </button>
           </div>
         </div>
+
+        {/* Customer Reviews Section */}
+        <CustomerReviewsSection itemId={item._id} />
 
         {/* Dynamic "More from [Vendor Name]" Section */}
         <RelatedVendorItems

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   X,
@@ -10,8 +10,10 @@ import {
   Store,
   Clock,
   ArrowRight,
+  Star,
 } from "lucide-react";
-import { CustomerOrder } from "@/types/order";
+import { CustomerOrder, OrderReview } from "@/types/order";
+import { api } from "@/lib/api-client";
 import Link from "next/link";
 
 interface OrderDetailsModalProps {
@@ -30,6 +32,30 @@ export function OrderDetailsModal({
   onClose,
   onCancelRequest,
 }: OrderDetailsModalProps) {
+  const [review, setReview] = useState<OrderReview | null>(order?.review || null);
+
+  useEffect(() => {
+    if (order?.review) {
+      setReview(order.review);
+    } else if (order?._id && isOpen) {
+      api.get<{ success: boolean; data: OrderReview | null }>(
+        `/api/reviews/order/${order._id}`
+      )
+        .then((res) => {
+          if (res?.data) {
+            setReview(res.data);
+          } else {
+            setReview(null);
+          }
+        })
+        .catch(() => {
+          setReview(null);
+        });
+    } else {
+      setReview(null);
+    }
+  }, [order?._id, order?.review, isOpen]);
+
   // Close on Escape key
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -238,6 +264,41 @@ export function OrderDetailsModal({
               </span>
             </div>
           </div>
+
+          {/* Customer's Submitted Review */}
+          {review && (
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/5 border border-amber-500/20 flex flex-col gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                  <Star className="size-3.5 text-amber-500 fill-amber-500" />
+                  Your Submitted Review
+                </span>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`size-3.5 ${
+                        s <= review.rating
+                          ? "text-orange-500 fill-orange-500"
+                          : "text-stone-300 dark:text-stone-700"
+                      }`}
+                    />
+                  ))}
+                  <span className="text-xs font-bold text-foreground ml-1">
+                    {review.rating}/5
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs sm:text-sm text-foreground/90 italic bg-background/80 p-3 rounded-xl border border-border/60">
+                &ldquo;{review.comment}&rdquo;
+              </p>
+              {review.createdAt && (
+                <span className="text-[11px] text-muted-foreground text-right">
+                  Reviewed on {formatDate(review.createdAt)}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* View Product Details */}
           <div className="flex justify-end mt-1">

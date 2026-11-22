@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { Star } from "lucide-react";
+import { toast } from "sonner";
 import { CustomerOrder } from "@/types/order";
 
 interface CustomerOrderCardProps {
   order: CustomerOrder;
   onViewDetails: (order: CustomerOrder) => void;
   onCancel: (order: CustomerOrder) => void;
+  onReview?: (order: CustomerOrder) => void;
 }
 
 const FALLBACK_IMAGE =
@@ -16,6 +19,7 @@ export function CustomerOrderCard({
   order,
   onViewDetails,
   onCancel,
+  onReview,
 }: CustomerOrderCardProps) {
   const itemName = order.item?.itemName || "Artisanal Pizza";
   const vendorName =
@@ -83,6 +87,80 @@ export function CustomerOrderCard({
 
   const isPending = order.status === "pending";
 
+  const renderReviewButton = () => {
+    if (order.review) {
+      return (
+        <button
+          type="button"
+          disabled
+          className="text-xs font-semibold px-3.5 py-1.5 rounded-full border border-stone-200 dark:border-stone-800 bg-stone-100/70 dark:bg-stone-800/40 text-stone-400 dark:text-stone-500 cursor-not-allowed select-none flex items-center justify-center gap-1.5 shrink-0"
+          title="You have already submitted a review for this order"
+        >
+          <Star className="size-3 text-stone-400 dark:text-stone-500 fill-stone-400 dark:fill-stone-500" />
+          Reviewed
+        </button>
+      );
+    }
+
+    if (order.status === "accepted") {
+      return (
+        <button
+          type="button"
+          onClick={() => onReview?.(order)}
+          className="text-xs font-semibold px-3.5 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs shrink-0"
+        >
+          <Star className="size-3 text-primary" />
+          Review
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          toast.info(
+            "This order has not been accepted or fulfilled yet. You can review only accepted orders."
+          );
+        }}
+        className="text-xs font-medium px-3.5 py-1.5 rounded-full border border-stone-200/80 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/30 text-stone-400 dark:text-stone-600 transition-colors cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+      >
+        <Star className="size-3 text-stone-400 dark:text-stone-600" />
+        Review
+      </button>
+    );
+  };
+
+  const renderViewDetailsButton = () => (
+    <button
+      type="button"
+      onClick={() => onViewDetails(order)}
+      className="text-xs font-semibold px-4 py-1.5 rounded-full border border-stone-200 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/40 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-foreground cursor-pointer flex items-center justify-center shrink-0"
+    >
+      View Details
+    </button>
+  );
+
+  const renderCancelButton = () => {
+    if (isPending) {
+      return (
+        <button
+          type="button"
+          onClick={() => onCancel(order)}
+          className="text-xs font-semibold px-4 py-1.5 rounded-full border border-rose-300 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer flex items-center justify-center shrink-0"
+        >
+          Cancel
+        </button>
+      );
+    }
+
+    return (
+      <span className="text-xs font-medium px-4 py-1.5 text-stone-300 dark:text-stone-600 select-none cursor-not-allowed flex items-center justify-center shrink-0">
+        Cancel
+      </span>
+    );
+  };
+
   return (
     <div className="bg-white dark:bg-card border border-stone-200/70 dark:border-stone-800 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col gap-4 transition-all hover:shadow-sm">
       {/* Top Section: Thumbnail + Item/Vendor Info + Date / Address Details */}
@@ -146,36 +224,31 @@ export function CustomerOrderCard({
         </div>
       </div>
 
-      {/* Bottom Section: Status Pill + Actions (View Details, Cancel) */}
-      <div className="flex items-center justify-between gap-3 pt-3 border-t border-stone-100 dark:border-stone-800/80">
-        {/* Status Badge */}
-        <div>{renderStatusBadge(order.status)}</div>
+      {/* Bottom Section: Status Pill + Actions (Desktop: 1 row, Mobile: 2 rows) */}
+      <div className="pt-3 border-t border-stone-100 dark:border-stone-800/80">
+        {/* Desktop Layout (sm and above): Unchanged single row */}
+        <div className="hidden sm:flex items-center justify-between gap-3">
+          <div>{renderStatusBadge(order.status)}</div>
+          <div className="flex items-center gap-3">
+            {renderReviewButton()}
+            {renderViewDetailsButton()}
+            {renderCancelButton()}
+          </div>
+        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          {/* View Details */}
-          <button
-            type="button"
-            onClick={() => onViewDetails(order)}
-            className="text-xs font-semibold px-4 py-1.5 rounded-full border border-stone-200 dark:border-stone-700 bg-stone-50/60 dark:bg-stone-800/40 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors text-foreground cursor-pointer"
-          >
-            View Details
-          </button>
+        {/* Mobile Layout (below sm): Two clean rows */}
+        <div className="flex sm:hidden flex-col gap-2.5">
+          {/* Row 1: Order Status Badge + Review Button */}
+          <div className="flex items-center justify-between gap-2 w-full">
+            <div>{renderStatusBadge(order.status)}</div>
+            <div>{renderReviewButton()}</div>
+          </div>
 
-          {/* Cancel */}
-          {isPending ? (
-            <button
-              type="button"
-              onClick={() => onCancel(order)}
-              className="text-xs font-semibold px-4 py-1.5 rounded-full border border-rose-300 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-          ) : (
-            <span className="text-xs font-medium px-4 py-1.5 text-stone-300 dark:text-stone-600 select-none cursor-not-allowed">
-              Cancel
-            </span>
-          )}
+          {/* Row 2: View Details + Cancel Button */}
+          <div className="flex items-center justify-end gap-2.5 w-full pt-0.5">
+            {renderViewDetailsButton()}
+            {renderCancelButton()}
+          </div>
         </div>
       </div>
     </div>

@@ -14,8 +14,9 @@ import {
 import { CustomerOrderCard } from "@/components/dashboard/orders/customer-order-card";
 import { OrderDetailsModal } from "@/components/dashboard/orders/order-details-modal";
 import { CancelOrderModal } from "@/components/dashboard/orders/cancel-order-modal";
+import { ReviewOrderModal } from "@/components/dashboard/orders/review-order-modal";
 import { OrderPagination } from "@/components/dashboard/orders/order-pagination";
-import { CustomerOrder } from "@/types/order";
+import { CustomerOrder, OrderReview } from "@/types/order";
 
 const PAGE_SIZE = 4;
 
@@ -30,6 +31,16 @@ export default function CustomerOrdersPage() {
   const [viewingOrder, setViewingOrder] = useState<CustomerOrder | null>(null);
   const [cancellingOrder, setCancellingOrder] = useState<CustomerOrder | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [reviewingOrder, setReviewingOrder] = useState<CustomerOrder | null>(null);
+
+  function handleReviewSuccess(orderId: string, review: OrderReview) {
+    setOrders((prev) =>
+      prev.map((o) => (o._id === orderId ? { ...o, review } : o))
+    );
+    if (viewingOrder?._id === orderId) {
+      setViewingOrder((prev) => (prev ? { ...prev, review } : null));
+    }
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -218,6 +229,7 @@ export default function CustomerOrdersPage() {
                 order={order}
                 onViewDetails={(selected) => setViewingOrder(selected)}
                 onCancel={(selected) => setCancellingOrder(selected)}
+                onReview={(selected) => setReviewingOrder(selected)}
               />
             ))}
 
@@ -248,6 +260,14 @@ export default function CustomerOrdersPage() {
         isCancelling={isCancelling}
         onClose={() => setCancellingOrder(null)}
         onConfirmCancel={handleConfirmCancel}
+      />
+
+      {/* Review Order Modal */}
+      <ReviewOrderModal
+        order={reviewingOrder}
+        isOpen={Boolean(reviewingOrder)}
+        onClose={() => setReviewingOrder(null)}
+        onSuccess={handleReviewSuccess}
       />
     </div>
   );
