@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, ChevronDown, User, ShoppingBag, LogOut } from "lucide-react";
+import { Menu, ChevronDown, User, LayoutDashboard, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useSession, signOut } from "@/lib/auth-client";
 import { clearStoredToken } from "@/lib/api-client";
@@ -27,6 +27,19 @@ export function DashboardHeader({
   const { toggleSidebar, toggleMobileSidebar } = useDashboard();
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [profileOverride, setProfileOverride] = useState<{ name?: string; image?: string } | null>(null);
+
+  // Instantly reflect real-time profile updates across DashboardHeader
+  useEffect(() => {
+    function handleProfileUpdate(e: Event) {
+      const customEvent = e as CustomEvent<{ name?: string; image?: string }>;
+      if (customEvent.detail) {
+        setProfileOverride(customEvent.detail);
+      }
+    }
+    window.addEventListener("pizzahub-profile-updated", handleProfileUpdate);
+    return () => window.removeEventListener("pizzahub-profile-updated", handleProfileUpdate);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -39,9 +52,43 @@ export function DashboardHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const user = session?.user as
+  const sessionUser = session?.user as
     | { name?: string; email?: string; image?: string; role?: string }
     | undefined;
+
+  const user = sessionUser
+    ? {
+        ...sessionUser,
+        name: profileOverride?.name ?? sessionUser.name,
+        image:
+          profileOverride?.image !== undefined
+            ? profileOverride.image || undefined
+            : sessionUser.image,
+      }
+    : undefined;
+
+  const role = user?.role || "customer";
+
+  const dashboardHref =
+    role === "admin"
+      ? "/dashboard/admin"
+      : role === "vendor"
+      ? "/dashboard/vendor"
+      : "/dashboard/customer";
+
+  const dashboardLabel =
+    role === "admin"
+      ? "Admin Dashboard"
+      : role === "vendor"
+      ? "Vendor Dashboard"
+      : "Customer Dashboard";
+
+  const profileHref =
+    role === "admin"
+      ? "/dashboard/admin/profile"
+      : role === "vendor"
+      ? "/dashboard/vendor/profile"
+      : "/dashboard/customer/profile";
 
   const displayName = user?.name || "Customer";
   const userInitial = displayName.charAt(0).toUpperCase() || "A";
@@ -138,48 +185,33 @@ export function DashboardHeader({
                 <p className="text-[11px] text-muted-foreground truncate">
                   {user?.email || ""}
                 </p>
+                <span className="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {role === "admin"
+                    ? "Administrator"
+                    : role === "vendor"
+                    ? "Vendor"
+                    : "Customer"}
+                </span>
               </div>
 
+              {/* Consistent Role-Based Navigation */}
               <div className="py-1">
-                {user?.role === "vendor" ? (
-                  <>
-                    <Link
-                      href="/dashboard/vendor/orders"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                    >
-                      <ShoppingBag className="size-3.5 text-muted-foreground" />
-                      <span>Customer Orders</span>
-                    </Link>
-                    <Link
-                      href="/dashboard/vendor/items"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                    >
-                      <User className="size-3.5 text-muted-foreground" />
-                      <span>My Menu Items</span>
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      href="/dashboard/customer/orders"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                    >
-                      <ShoppingBag className="size-3.5 text-muted-foreground" />
-                      <span>My Orders</span>
-                    </Link>
-                    <Link
-                      href="/dashboard/customer/profile"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
-                    >
-                      <User className="size-3.5 text-muted-foreground" />
-                      <span>Profile Settings</span>
-                    </Link>
-                  </>
-                )}
+                <Link
+                  href={dashboardHref}
+                  onClick={() => setProfileDropdownOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                >
+                  <LayoutDashboard className="size-3.5 text-muted-foreground" />
+                  <span>{dashboardLabel}</span>
+                </Link>
+                <Link
+                  href={profileHref}
+                  onClick={() => setProfileDropdownOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-muted/70 transition-colors"
+                >
+                  <User className="size-3.5 text-muted-foreground" />
+                  <span>Profile</span>
+                </Link>
               </div>
 
               <div className="border-t border-border/60 pt-1">

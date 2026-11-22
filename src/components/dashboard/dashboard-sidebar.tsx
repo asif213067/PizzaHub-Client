@@ -12,6 +12,7 @@ import {
   X,
   UtensilsCrossed,
   Users,
+  User,
   Star,
   Plus,
 } from "lucide-react";
@@ -122,9 +123,9 @@ export function DashboardSidebar() {
       active: pathname.startsWith("/dashboard/admin/items"),
     },
     {
-      name: "Profile Settings",
+      name: "Profile",
       href: "/dashboard/admin/profile",
-      icon: Settings,
+      icon: User,
       active: pathname.startsWith("/dashboard/admin/profile"),
     },
   ];

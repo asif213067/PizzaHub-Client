@@ -26,6 +26,19 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [profileOverride, setProfileOverride] = useState<{ name?: string; image?: string } | null>(null);
+
+  // Instantly reflect real-time profile updates across Navbar
+  useEffect(() => {
+    function handleProfileUpdate(e: Event) {
+      const customEvent = e as CustomEvent<{ name?: string; image?: string }>;
+      if (customEvent.detail) {
+        setProfileOverride(customEvent.detail);
+      }
+    }
+    window.addEventListener("pizzahub-profile-updated", handleProfileUpdate);
+    return () => window.removeEventListener("pizzahub-profile-updated", handleProfileUpdate);
+  }, []);
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -56,9 +69,20 @@ export function Navbar() {
     }
   }
 
-  const user = session?.user as
+  const sessionUser = session?.user as
     | { name?: string; email?: string; image?: string; role?: string }
     | undefined;
+
+  const user = sessionUser
+    ? {
+        ...sessionUser,
+        name: profileOverride?.name ?? sessionUser.name,
+        image:
+          profileOverride?.image !== undefined
+            ? profileOverride.image || undefined
+            : sessionUser.image,
+      }
+    : undefined;
 
   const role = user?.role || "customer";
 
@@ -69,6 +93,20 @@ export function Navbar() {
       : role === "vendor"
       ? "/dashboard/vendor"
       : "/dashboard/customer";
+
+  const dashboardLabel =
+    role === "admin"
+      ? "Admin Dashboard"
+      : role === "vendor"
+      ? "Vendor Dashboard"
+      : "Customer Dashboard";
+
+  const profileHref =
+    role === "admin"
+      ? "/dashboard/admin/profile"
+      : role === "vendor"
+      ? "/dashboard/vendor/profile"
+      : "/dashboard/customer/profile";
 
   // Build callbackUrl — only for non-auth, non-dashboard pages
   const isAuthOrDashboard =
@@ -202,15 +240,15 @@ export function Navbar() {
                         className="flex items-center gap-2.5 px-4 py-2 text-xs sm:text-sm font-medium text-card-foreground hover:bg-muted/70 transition-colors"
                       >
                         <LayoutDashboard className="size-4 text-muted-foreground" />
-                        <span>Dashboard</span>
+                        <span>{dashboardLabel}</span>
                       </Link>
                       <Link
-                        href={`${dashboardHref}/profile`}
+                        href={profileHref}
                         onClick={() => setProfileDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2 text-xs sm:text-sm font-medium text-card-foreground hover:bg-muted/70 transition-colors"
                       >
                         <User className="size-4 text-muted-foreground" />
-                        <span>Profile Settings</span>
+                        <span>Profile</span>
                       </Link>
                     </div>
 
@@ -329,15 +367,15 @@ export function Navbar() {
                     className="w-full flex items-center justify-center gap-2 py-2 text-sm font-semibold text-white bg-[image:var(--gradient-primary)] hover:brightness-105 rounded-full shadow-xs transition-all"
                   >
                     <LayoutDashboard className="size-4" />
-                    <span>Dashboard</span>
+                    <span>{dashboardLabel}</span>
                   </Link>
                   <Link
-                    href="/profile"
+                    href={profileHref}
                     onClick={() => setMobileMenuOpen(false)}
                     className="w-full flex items-center justify-center gap-2 py-2 text-sm font-medium text-foreground rounded-full border border-border hover:bg-muted transition-colors"
                   >
                     <User className="size-4" />
-                    <span>Profile Settings</span>
+                    <span>Profile</span>
                   </Link>
                   <button
                     type="button"
