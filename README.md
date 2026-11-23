@@ -10,6 +10,14 @@
 
 ---
 
+## Project Links
+
+- **Live Website:** [PizzaHub](https://pizzahub-by-asif.vercel.app)
+- **Client Repository:** [PizzaHub Client](https://github.com/asif213067/PizzaHub-Client)
+- **Server Repository:** [PizzaHub Server](https://github.com/asif213067/PizzaHub-Server)
+
+---
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
@@ -372,7 +380,23 @@ Features planned for upcoming releases:
 
 ## License & Repository
 
-This project was developed for educational and portfolio demonstration purposes as part of the Programming Hero curriculum.
+This project was developed for educational and portfolio demonstration purposes.
 
-- **Repository:** Private / Academic Assignment
-- **Backend Service:** [PizzaHub Express Server](../pizzahub-server)
+- **Repository:** https://github.com/asif213067/PizzaHub-Client
+- **Backend Service:** [PizzaHub Express Server](https://github.com/asif213067/PizzaHub-Server)
+
+---
+
+## Author
+
+**Asif Hosen**\
+Full-Stack Developer
+
+-   Website: https://togetherwe-client-by-asif.vercel.app
+-   GitHub: https://github.com/asif213067
+-   Linkedin: https://www.linkedin.com/in/asif-hosen
+
+------------------------------------------------------------------------
+
+Built with the goal of making local community service easier to
+discover, organize, and join.
