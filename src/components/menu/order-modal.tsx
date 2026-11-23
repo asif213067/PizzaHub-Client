@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, getStoredToken, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { MenuItem } from "@/components/shared/pizza-card";
+import { useCreateOrder } from "@/hooks/queries";
 
 interface OrderModalProps {
   item: MenuItem;
@@ -24,6 +25,7 @@ export function OrderModal({ item, isOpen, onClose }: OrderModalProps) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const createOrderMutation = useCreateOrder();
 
   // Close on Escape key
   useEffect(() => {
@@ -60,7 +62,7 @@ export function OrderModal({ item, isOpen, onClose }: OrderModalProps) {
         await syncAuthToken(session.user.email);
       }
 
-      await api.post("/api/orders", {
+      await createOrderMutation.mutateAsync({
         itemId: item._id,
         deliveryDate: deliveryDate.trim(),
         deliveryAddress: deliveryAddress.trim(),

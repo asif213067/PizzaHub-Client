@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Pizza, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { api, getStoredToken, syncAuthToken } from "@/lib/api-client";
+import { getStoredToken, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import {
@@ -17,13 +17,12 @@ import { CancelOrderModal } from "@/components/dashboard/orders/cancel-order-mod
 import { ReviewOrderModal } from "@/components/dashboard/orders/review-order-modal";
 import { OrderPagination } from "@/components/dashboard/orders/order-pagination";
 import { CustomerOrder, OrderReview } from "@/types/order";
+import { useCustomerOrders, useCancelOrder } from "@/hooks/queries";
 
 const PAGE_SIZE = 4;
 
 export default function CustomerOrdersPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<CustomerOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<OrderStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -33,45 +32,25 @@ export default function CustomerOrdersPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [reviewingOrder, setReviewingOrder] = useState<CustomerOrder | null>(null);
 
+  // TanStack Query caching & mutations
+  const { data: ordersRes, isLoading: loading, refetch } = useCustomerOrders();
+  const cancelOrderMutation = useCancelOrder();
+
+  const orders = useMemo(() => {
+    return Array.isArray(ordersRes?.data) ? ordersRes.data : [];
+  }, [ordersRes]);
+
   function handleReviewSuccess(orderId: string, review: OrderReview) {
-    setOrders((prev) =>
-      prev.map((o) => (o._id === orderId ? { ...o, review } : o))
-    );
+    refetch();
     if (viewingOrder?._id === orderId) {
       setViewingOrder((prev) => (prev ? { ...prev, review } : null));
     }
   }
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function fetchOrders() {
-      try {
-        // Ensure token is synced if missing from localStorage
-        if (!getStoredToken() && session?.user?.email) {
-          await syncAuthToken(session.user.email);
-        }
-
-        const res = await api.get<{ success: boolean; data: CustomerOrder[] }>(
-          "/api/orders/my-orders"
-        );
-
-        if (isMounted && res?.data) {
-          setOrders(Array.isArray(res.data) ? res.data : []);
-        }
-      } catch (err) {
-        console.error("Failed to load customer orders:", err);
-        toast.error("Could not load your orders. Please try again.");
-      } finally {
-        if (isMounted) setLoading(false);
-      }
+    if (!getStoredToken() && session?.user?.email) {
+      syncAuthToken(session.user.email);
     }
-
-    fetchOrders();
-
-    return () => {
-      isMounted = false;
-    };
   }, [session?.user?.email]);
 
   // Status counts for filter pills
@@ -107,30 +86,16 @@ export default function CustomerOrdersPage() {
   async function handleConfirmCancel(order: CustomerOrder) {
     try {
       setIsCancelling(true);
+      await cancelOrderMutation.mutateAsync(order._id);
+      toast.success("Order cancelled successfully");
 
-      const res = await api.patch<{ success: boolean; message?: string }>(
-        `/api/orders/${order._id}/cancel`
-      );
-
-      if (res?.success) {
-        toast.success("Order cancelled successfully");
-
-        // Update local order status
-        setOrders((prev) =>
-          prev.map((o) =>
-            o._id === order._id ? { ...o, status: "cancelled" } : o
-          )
+      // Update viewingOrder if open
+      if (viewingOrder?._id === order._id) {
+        setViewingOrder((prev) =>
+          prev ? { ...prev, status: "cancelled" } : null
         );
-
-        // Update viewingOrder if open
-        if (viewingOrder?._id === order._id) {
-          setViewingOrder((prev) =>
-            prev ? { ...prev, status: "cancelled" } : null
-          );
-        }
-
-        setCancellingOrder(null);
       }
+      setCancellingOrder(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to cancel order.";
       toast.error(msg);

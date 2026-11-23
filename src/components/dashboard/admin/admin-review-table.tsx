@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminReview } from "@/types/admin";
-import { api } from "@/lib/api-client";
+import { useDeleteReview } from "@/hooks/queries";
 
 interface AdminReviewTableProps {
   reviews: AdminReview[];
@@ -52,24 +52,18 @@ export function AdminReviewTable({
   const [viewingReview, setViewingReview] = useState<AdminReview | null>(null);
   const [deletingReview, setDeletingReview] = useState<AdminReview | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deleteReviewMutation = useDeleteReview();
 
   // Handle Permanent Delete
   async function handleDeleteConfirm() {
     if (!deletingReview) return;
     try {
       setIsDeleting(true);
-      const res = await api.delete<{ success: boolean; message: string }>(
-        `/api/reviews/${deletingReview._id}`
-      );
-
-      if (res?.success) {
-        toast.success("Review deleted successfully. Item ratings updated.");
-        setDeletingReview(null);
-        if (onReviewDeleted) {
-          onReviewDeleted();
-        }
-      } else {
-        toast.error(res?.message || "Failed to delete review.");
+      await deleteReviewMutation.mutateAsync(deletingReview._id);
+      toast.success("Review deleted successfully. Item ratings updated.");
+      setDeletingReview(null);
+      if (onReviewDeleted) {
+        onReviewDeleted();
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to delete review.";

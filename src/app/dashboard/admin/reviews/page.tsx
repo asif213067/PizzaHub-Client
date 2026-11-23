@@ -7,6 +7,7 @@ import { AdminReviewTable } from "@/components/dashboard/admin/admin-review-tabl
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { AdminReview } from "@/types/admin";
+import { reviewService } from "@/services/review.service";
 
 export default function AdminReviewsPage() {
   const { data: session } = useSession();
@@ -28,18 +29,12 @@ export default function AdminReviewsPage() {
   const fetchReviews = useCallback(async () => {
     setReviewsLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: reviewPage.toString(),
-        limit: "15",
+      const res = await reviewService.getAllReviewsAdmin({
+        page: reviewPage,
+        limit: 15,
         rating: reviewRatingFilter,
-        ...(reviewSearch.trim() ? { search: reviewSearch.trim() } : {}),
+        search: reviewSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminReview[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/admin/reviews?${queryParams.toString()}`);
 
       if (res?.data) {
         setReviews(res.data);

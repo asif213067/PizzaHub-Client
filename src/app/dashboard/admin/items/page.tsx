@@ -7,6 +7,7 @@ import { AdminMenuApproval } from "@/components/dashboard/admin/admin-menu-appro
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { AdminMenuItem } from "@/types/admin";
+import { menuService } from "@/services/menu.service";
 
 export default function AdminItemsPage() {
   const { data: session } = useSession();
@@ -29,19 +30,13 @@ export default function AdminItemsPage() {
   const fetchMenuItems = useCallback(async () => {
     setItemsLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: itemPage.toString(),
-        limit: "12",
+      const res = await menuService.getAdminAllItems({
+        page: itemPage,
+        limit: 12,
         status: itemStatusFilter,
         category: itemCategoryFilter,
-        ...(itemSearch.trim() ? { search: itemSearch.trim() } : {}),
+        search: itemSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminMenuItem[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/menu/admin/all?${queryParams.toString()}`);
 
       if (res?.data) {
         setMenuItems(res.data);

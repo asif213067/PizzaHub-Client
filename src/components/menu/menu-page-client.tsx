@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MenuFilters, MenuFiltersState, SortOption } from "./menu-filters";
 import { MenuGrid } from "./menu-grid";
 import { MenuItem } from "@/components/shared/pizza-card";
+import { menuService } from "@/services/menu.service";
 
 interface Pagination {
   total: number;
@@ -51,28 +52,20 @@ export function MenuPageClient() {
       setLoading(true);
       setError(null);
 
-      const serverUrl =
-        process.env.NEXT_PUBLIC_SERVER_BASE_URL || "http://localhost:5000";
-
-      const params = new URLSearchParams();
-      if (nextFilters.search) params.set("search", nextFilters.search);
-      if (nextFilters.category) params.set("category", nextFilters.category);
-      if (nextFilters.location) params.set("location", nextFilters.location);
-      if (nextFilters.sort) params.set("sort", nextFilters.sort);
-      params.set("page", String(nextPage));
-      params.set("limit", String(ITEMS_PER_PAGE));
-
       try {
-        const res = await fetch(`${serverUrl}/api/menu?${params.toString()}`, {
-          cache: "no-store",
+        const json = await menuService.getPublicItems({
+          search: nextFilters.search,
+          category: nextFilters.category,
+          location: nextFilters.location,
+          sort: nextFilters.sort,
+          page: nextPage,
+          limit: ITEMS_PER_PAGE,
         });
 
-        if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
-
-        const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
+          const itemsList = json.data as unknown as MenuItem[];
           startTransition(() => {
-            setItems(json.data);
+            setItems(itemsList);
             setPagination(
               json.pagination ?? {
                 total: json.data.length,
@@ -84,9 +77,9 @@ export function MenuPageClient() {
             setLocations((prev) => {
               const all = new Set([
                 ...prev,
-                ...json.data
-                  .map((it: MenuItem) => it.location)
-                  .filter(Boolean),
+                ...itemsList
+                  .map((it) => it.location)
+                  .filter((loc): loc is string => Boolean(loc)),
               ]);
               return Array.from(all).sort();
             });

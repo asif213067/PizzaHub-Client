@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { PizzaCard, PizzaCardSkeleton, MenuItem } from "@/components/shared/pizza-card";
+import { useRelatedMenuItems } from "@/hooks/queries";
 
 interface RelatedVendorItemsProps {
   itemId: string;
@@ -12,46 +12,8 @@ export function RelatedVendorItems({
   itemId,
   vendorName,
 }: RelatedVendorItemsProps) {
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-    const serverUrl =
-      process.env.NEXT_PUBLIC_SERVER_BASE_URL || "http://localhost:5000";
-
-    async function loadRelated() {
-      try {
-        const res = await fetch(`${serverUrl}/api/menu/${itemId}/related?limit=3`, {
-          cache: "no-store",
-        });
-
-        if (!res.ok) {
-          if (isMounted) setItems([]);
-          return;
-        }
-
-        const json = await res.json();
-        if (isMounted) {
-          if (json.success && Array.isArray(json.data)) {
-            setItems(json.data);
-          } else {
-            setItems([]);
-          }
-        }
-      } catch {
-        if (isMounted) setItems([]);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-
-    loadRelated();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [itemId]);
+  const { data: res, isLoading: loading } = useRelatedMenuItems(itemId, 3);
+  const items = (res?.data || []) as unknown as MenuItem[];
 
   // While loading, show skeleton
   if (loading) {

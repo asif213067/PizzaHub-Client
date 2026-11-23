@@ -21,6 +21,10 @@ import { AdminTransactionsTable } from "@/components/dashboard/admin/admin-trans
 import { AdminReviewTable } from "@/components/dashboard/admin/admin-review-table";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
+import { adminService } from "@/services/admin.service";
+import { menuService } from "@/services/menu.service";
+import { userService } from "@/services/user.service";
+import { reviewService } from "@/services/review.service";
 import {
   AdminOverviewStats,
   AdminUser,
@@ -82,7 +86,7 @@ export default function AdminDashboardPage() {
   // Fetch Overview Stats
   const fetchStats = useCallback(async () => {
     try {
-      const res = await api.get<{ success: boolean; data: AdminOverviewStats }>("/api/admin/overview");
+      const res = await adminService.getOverviewStats();
       if (res?.data) {
         setStats(res.data);
       }
@@ -97,18 +101,12 @@ export default function AdminDashboardPage() {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: userPage.toString(),
-        limit: "10",
+      const res = await userService.getAdminUsers({
+        page: userPage,
+        limit: 10,
         role: userRoleFilter,
-        ...(userSearch.trim() ? { search: userSearch.trim() } : {}),
+        search: userSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminUser[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/admin/users?${queryParams.toString()}`);
 
       if (res?.data) {
         setUsers(res.data);
@@ -126,19 +124,13 @@ export default function AdminDashboardPage() {
   const fetchMenuItems = useCallback(async () => {
     setItemsLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: itemPage.toString(),
-        limit: "8",
+      const res = await menuService.getAdminAllItems({
+        page: itemPage,
+        limit: 8,
         status: itemStatusFilter,
         category: itemCategoryFilter,
-        ...(itemSearch.trim() ? { search: itemSearch.trim() } : {}),
+        search: itemSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminMenuItem[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/menu/admin/all?${queryParams.toString()}`);
 
       if (res?.data) {
         setMenuItems(res.data);
@@ -155,15 +147,11 @@ export default function AdminDashboardPage() {
   // Fetch Transactions
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await api.get<{
-        success: boolean;
-        data: AdminTransaction[];
-        pagination: { total: number };
-      }>("/api/admin/transactions?limit=10");
+      const res = await adminService.getTransactions();
 
       if (res?.data) {
         setTransactions(res.data);
-        setTxTotalCount(res.pagination?.total || 0);
+        setTxTotalCount(res.count || res.data.length);
       }
     } catch {
       // silently handle
@@ -176,18 +164,12 @@ export default function AdminDashboardPage() {
   const fetchReviews = useCallback(async () => {
     setReviewsLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: reviewPage.toString(),
-        limit: "10",
+      const res = await reviewService.getAllReviewsAdmin({
+        page: reviewPage,
+        limit: 10,
         rating: reviewRatingFilter,
-        ...(reviewSearch.trim() ? { search: reviewSearch.trim() } : {}),
+        search: reviewSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminReview[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/admin/reviews?${queryParams.toString()}`);
 
       if (res?.data) {
         setReviews(res.data);

@@ -1,60 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, Pizza } from "lucide-react";
 import { PizzaCard, PizzaCardSkeleton, MenuItem } from "@/components/shared/pizza-card";
+import { useFeaturedMenu } from "@/hooks/queries";
 
 export function FeaturedMenu() {
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: menuData, isLoading: loading, error: queryError } = useFeaturedMenu(6);
 
-  useEffect(() => {
-    let isMounted = true;
-    const serverUrl =
-      process.env.NEXT_PUBLIC_SERVER_BASE_URL || "http://localhost:5000";
-
-    async function fetchFeaturedItems() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await fetch(`${serverUrl}/api/menu?featured=true&limit=6`, {
-          cache: "no-store",
-        });
-
-        if (!res.ok) {
-          throw new Error(`Failed to fetch menu items: ${res.statusText}`);
-        }
-
-        const json = await res.json();
-        if (isMounted) {
-          if (json.success && Array.isArray(json.data)) {
-            setItems(json.data);
-          } else {
-            setItems([]);
-          }
-        }
-      } catch (err) {
-        if (isMounted) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load featured items"
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    fetchFeaturedItems();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const items = (menuData?.data || []) as unknown as MenuItem[];
+  const error = queryError ? (queryError instanceof Error ? queryError.message : "Failed to load featured items") : null;
 
   return (
     <section className="w-full py-4 sm:py-6 px-4 sm:px-6 lg:px-8">

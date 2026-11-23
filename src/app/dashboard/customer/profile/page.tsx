@@ -20,6 +20,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession, updateUser } from "@/lib/auth-client";
 import { uploadToImgBB } from "@/lib/upload-imgbb";
+import { userService } from "@/services/user.service";
 
 interface CustomerProfile {
   _id?: string;
@@ -67,11 +68,9 @@ export default function CustomerProfilePage() {
   // Fetch profile data
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await api.get<{ success: boolean; data: CustomerProfile }>(
-        "/api/users/profile"
-      );
+      const res = await userService.getProfile();
       if (res?.data) {
-        setProfile(res.data);
+        setProfile(res.data as unknown as CustomerProfile);
         setName(res.data.name ?? "");
         setPhone(res.data.phone ?? "");
         setAddress(res.data.address ?? "");
@@ -169,10 +168,7 @@ export default function CustomerProfilePage() {
         payload.image = uploadedImgUrl;
       }
 
-      const res = await api.patch<{ success: boolean; message?: string; data?: CustomerProfile }>(
-        "/api/users/profile",
-        payload
-      );
+      const res = await userService.updateProfile(payload);
 
       if (res?.success) {
         // Update Better Auth session store so client state updates immediately

@@ -19,6 +19,12 @@ import { VendorUpgradeLimitModal } from "@/components/dashboard/vendor/vendor-up
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { VendorMenuItem } from "@/types/vendor";
+import {
+  useVendorMenuItems,
+  useUserProfile,
+  useUpdateMenuItem,
+  useDeleteMenuItem,
+} from "@/hooks/queries";
 
 const PAGE_SIZE = 4;
 
@@ -41,9 +47,6 @@ interface SingleItemApiResponse {
 
 export default function VendorItemsPage() {
   const { data: session } = useSession();
-  const [items, setItems] = useState<VendorMenuItem[]>([]);
-  const [plan, setPlan] = useState<"free" | "premium">("free");
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<MenuItemStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -62,49 +65,18 @@ export default function VendorItemsPage() {
     }
   }, [session]);
 
-  // Fetch vendor items and profile on mount
-  useEffect(() => {
-    let isMounted = true;
+  // TanStack Query caching hooks
+  const { data: menuData, isLoading: itemsLoading, refetch: refetchItems } = useVendorMenuItems();
+  const { data: userData, isLoading: userLoading } = useUserProfile();
+  const updateItemMutation = useUpdateMenuItem();
+  const deleteItemMutation = useDeleteMenuItem();
 
-    async function loadData() {
-      try {
-        const [itemsRes, profileRes] = await Promise.allSettled([
-          api.get<MenuItemsApiResponse>("/api/menu/vendor/my-items"),
-          api.get<ProfileApiResponse>("/api/users/profile"),
-        ]);
+  const loading = itemsLoading || userLoading;
+  const items = useMemo(() => {
+    return Array.isArray(menuData?.data) ? menuData.data : [];
+  }, [menuData]);
 
-        if (!isMounted) return;
-
-        if (itemsRes.status === "fulfilled" && itemsRes.value) {
-          const rawItems = itemsRes.value.data || [];
-          setItems(Array.isArray(rawItems) ? rawItems : []);
-        }
-
-        if (profileRes.status === "fulfilled" && profileRes.value) {
-          const profileData = profileRes.value.data || {};
-          if (profileData.subscriptionPlan === "premium") {
-            setPlan("premium");
-          } else {
-            setPlan("free");
-          }
-        }
-      } catch {
-        if (isMounted) {
-          toast.error("Failed to load your menu items. Please refresh.");
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const plan = userData?.data?.subscriptionPlan === "premium" ? "premium" : "free";
 
   // Calculate counts and active items
   const { counts, activeItemsCount } = useMemo(() => {
@@ -197,32 +169,10 @@ export default function VendorItemsPage() {
       setTogglingId(item._id);
 
       const nextActiveState = willActivate;
-      const res = await api.put<SingleItemApiResponse>(
-        `/api/menu/${item._id}`,
-        { isActive: nextActiveState }
-      );
-
-      const updated = res?.data;
-      if (updated && updated._id) {
-        setItems((prev) =>
-          prev.map((i) => (i._id === item._id ? { ...i, ...updated } : i))
-        );
-      } else {
-        // Fallback local update
-        setItems((prev) =>
-          prev.map((i) =>
-            i._id === item._id
-              ? {
-                  ...i,
-                  isActive: nextActiveState,
-                  status: (nextActiveState ? "approved" : "inactive") as
-                    | "approved"
-                    | "inactive",
-                }
-              : i
-          )
-        );
-      }
+      await updateItemMutation.mutateAsync({
+        id: item._id,
+        payload: { isActive: nextActiveState },
+      });
 
       toast.success(
         nextActiveState
@@ -242,9 +192,7 @@ export default function VendorItemsPage() {
 
   // Callback when item is edited in modal
   const handleItemUpdated = (updatedItem: VendorMenuItem) => {
-    setItems((prev) =>
-      prev.map((i) => (i._id === updatedItem._id ? updatedItem : i))
-    );
+    refetchItems();
   };
 
   // Confirm delete item
@@ -252,8 +200,7 @@ export default function VendorItemsPage() {
     try {
       setIsDeleting(true);
 
-      await api.delete(`/api/menu/${item._id}`);
-      setItems((prev) => prev.filter((i) => i._id !== item._id));
+      await deleteItemMutation.mutateAsync(item._id);
       toast.success(`"${item.itemName}" has been deleted.`);
       setDeletingItem(null);
     } catch {

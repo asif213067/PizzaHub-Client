@@ -10,21 +10,15 @@ import {
 } from "@/components/dashboard/vendor/vendor-orders-filters";
 import { VendorOrderCard } from "@/components/dashboard/vendor/vendor-order-card";
 import { VendorItemsPagination } from "@/components/dashboard/vendor/vendor-items-pagination";
-import { api, syncAuthToken } from "@/lib/api-client";
+import { syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { VendorOrder } from "@/types/vendor";
+import { useVendorOrders, useUpdateVendorOrderStatus } from "@/hooks/queries";
 
 const PAGE_SIZE = 4;
 
-interface OrdersApiResponse {
-  success?: boolean;
-  data?: VendorOrder[];
-}
-
 export default function VendorOrdersPage() {
   const { data: session } = useSession();
-  const [orders, setOrders] = useState<VendorOrder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -36,37 +30,13 @@ export default function VendorOrdersPage() {
     }
   }, [session]);
 
-  // Fetch incoming vendor orders on mount
-  useEffect(() => {
-    let isMounted = true;
+  // TanStack Query: auto-refreshes every 60s, pauses in inactive tabs, caches results
+  const { data: ordersRes, isLoading: loading } = useVendorOrders();
+  const updateStatusMutation = useUpdateVendorOrderStatus();
 
-    async function loadOrders() {
-      try {
-        const res = await api.get<OrdersApiResponse>("/api/orders/vendor-orders");
-
-        if (!isMounted) return;
-
-        if (res && res.data) {
-          const list = Array.isArray(res.data) ? res.data : [];
-          setOrders(list);
-        }
-      } catch {
-        if (isMounted) {
-          toast.error("Failed to load customer orders. Please refresh.");
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadOrders();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const orders = useMemo(() => {
+    return Array.isArray(ordersRes?.data) ? ordersRes.data : [];
+  }, [ordersRes]);
 
   // Compute status counts for filter pills
   const counts = useMemo(() => {
@@ -117,27 +87,16 @@ export default function VendorOrdersPage() {
   ) => {
     try {
       setUpdatingId(order._id);
+      await updateStatusMutation.mutateAsync({
+        id: order._id,
+        status: nextStatus,
+      });
 
-      const res = await api.patch<{ success: boolean; data?: VendorOrder }>(
-        `/api/orders/${order._id}/status`,
-        { status: nextStatus }
+      toast.success(
+        nextStatus === "accepted"
+          ? `Order for ${order.customer?.name || "Customer"} accepted!`
+          : `Order for ${order.customer?.name || "Customer"} rejected.`
       );
-
-      if (res?.success) {
-        setOrders((prev) =>
-          prev.map((o) =>
-            o._id === order._id ? { ...o, status: nextStatus } : o
-          )
-        );
-
-        toast.success(
-          nextStatus === "accepted"
-            ? `Order for ${order.customer?.name || "Customer"} accepted!`
-            : `Order for ${order.customer?.name || "Customer"} rejected.`
-        );
-      } else {
-        throw new Error("Failed to update order status.");
-      }
     } catch {
       toast.error("Could not update order status. Please try again.");
     } finally {

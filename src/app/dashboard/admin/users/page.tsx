@@ -7,6 +7,7 @@ import { AdminUserTable } from "@/components/dashboard/admin/admin-user-table";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import { AdminUser } from "@/types/admin";
+import { userService } from "@/services/user.service";
 
 export default function AdminUsersPage() {
   const { data: session } = useSession();
@@ -28,18 +29,12 @@ export default function AdminUsersPage() {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const queryParams = new URLSearchParams({
-        page: userPage.toString(),
-        limit: "15",
+      const res = await userService.getAdminUsers({
+        page: userPage,
+        limit: 15,
         role: userRoleFilter,
-        ...(userSearch.trim() ? { search: userSearch.trim() } : {}),
+        search: userSearch,
       });
-
-      const res = await api.get<{
-        success: boolean;
-        data: AdminUser[];
-        pagination: { total: number; totalPages: number };
-      }>(`/api/admin/users?${queryParams.toString()}`);
 
       if (res?.data) {
         setUsers(res.data);

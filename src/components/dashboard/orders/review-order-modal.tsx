@@ -4,8 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { Star, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api-client";
 import { CustomerOrder, OrderReview } from "@/types/order";
+import { useAddReview } from "@/hooks/queries";
 
 interface ReviewOrderModalProps {
   order: CustomerOrder | null;
@@ -36,6 +36,7 @@ export function ReviewOrderModal({
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const addReviewMutation = useAddReview();
 
   if (!isOpen || !order) return null;
 
@@ -62,13 +63,8 @@ export function ReviewOrderModal({
       setSubmitting(true);
       setError(null);
 
-      const res = await api.post<{
-        success: boolean;
-        message?: string;
-        data: OrderReview;
-      }>("/api/reviews", {
+      const res = await addReviewMutation.mutateAsync({
         orderId: order._id,
-        itemId: order.item?._id || order.itemId,
         rating,
         comment: comment.trim(),
       });

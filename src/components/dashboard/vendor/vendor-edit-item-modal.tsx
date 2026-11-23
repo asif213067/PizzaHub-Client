@@ -30,71 +30,104 @@ export function VendorEditItemModal({
   onClose,
   onItemUpdated,
 }: VendorEditItemModalProps) {
-  const [itemName, setItemName] = useState("");
-  const [category, setCategory] = useState("Classic");
-  const [price, setPrice] = useState("");
-  const [location, setLocation] = useState("");
-  const [description, setDescription] = useState("");
-  const [images, setImages] = useState<string[]>([]);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  if (!isOpen || !item) return null;
+
+  return (
+    <VendorEditItemForm
+      key={item._id}
+      item={item}
+      onClose={onClose}
+      onItemUpdated={onItemUpdated}
+    />
+  );
+}
+
+function VendorEditItemForm({
+  item,
+  onClose,
+  onItemUpdated,
+}: {
+  item: VendorMenuItem;
+  onClose: () => void;
+  onItemUpdated: (updatedItem: VendorMenuItem) => void;
+}) {
+  const [itemName, setItemName] = useState(item.itemName || "");
+  const [category, setCategory] = useState(item.category || "Classic");
+  const [price, setPrice] = useState(String(item.price ?? ""));
+  const [location, setLocation] = useState(item.location || "");
+  const [description, setDescription] = useState(item.description || "");
+  const [images, setImages] = useState<string[]>(() => {
+    return Array.isArray(item.images) && item.images.length > 0
+      ? item.images
+      : typeof (item as unknown as { image?: string }).image === "string" &&
+        (item as unknown as { image?: string }).image
+      ? [(item as unknown as { image?: string }).image!]
+      : [];
+  });
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (item) {
-      setItemName(item.itemName || "");
-      setCategory(item.category || "Classic");
-      setPrice(String(item.price ?? ""));
-      setLocation(item.location || "");
-      setDescription(item.description || "");
-
-      const itemImages =
-        Array.isArray(item.images) && item.images.length > 0
-          ? item.images
-          : typeof (item as unknown as { image?: string }).image === "string" && (item as unknown as { image?: string }).image
-          ? [(item as unknown as { image?: string }).image!]
-          : [];
-      setImages(itemImages);
-      setError(null);
-    }
-  }, [item]);
-
-  useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !submitting && !uploadingImage) onClose();
+      if (e.key === "Escape" && !submitting && !uploadingImages) onClose();
     }
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
+    window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, submitting, uploadingImage, onClose]);
-
-  if (!isOpen || !item) return null;
+  }, [submitting, uploadingImages, onClose]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
+    const remainingSlots = 4 - images.length;
+    if (remainingSlots <= 0) {
+      toast.error("You can upload a maximum of 4 images.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
     try {
-      setUploadingImage(true);
+      setUploadingImages(true);
       setError(null);
-      const url = await uploadToImgBB(file);
-      setImages([url]);
-      toast.success("Image uploaded successfully!");
+      const uploadedUrls: string[] = [];
+
+      for (let i = 0; i < filesToUpload.length; i++) {
+        const file = filesToUpload[i];
+        setUploadProgress(
+          `Uploading image ${i + 1} of ${filesToUpload.length} to ImgBB...`
+        );
+        const directUrl = await uploadToImgBB(file);
+        uploadedUrls.push(directUrl);
+      }
+
+      setImages((prev) => [...prev, ...uploadedUrls]);
+      toast.success(
+        `${uploadedUrls.length} image${
+          uploadedUrls.length > 1 ? "s" : ""
+        } uploaded to ImgBB!`
+      );
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to upload image.";
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to upload image. Please try again.";
+      setError(msg);
       toast.error(msg);
     } finally {
-      setUploadingImage(false);
+      setUploadingImages(false);
+      setUploadProgress("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const handleRemoveImage = () => {
-    setImages([]);
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImages((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -114,6 +147,11 @@ export function VendorEditItemModal({
 
     if (!location.trim()) {
       setError("Location is required.");
+      return;
+    }
+
+    if (images.length === 0) {
+      setError("At least one image is required.");
       return;
     }
 
@@ -160,7 +198,7 @@ export function VendorEditItemModal({
         <button
           type="button"
           onClick={onClose}
-          disabled={submitting || uploadingImage}
+          disabled={submitting || uploadingImages}
           className="absolute top-4 right-4 p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
           aria-label="Close dialog"
         >
@@ -189,78 +227,6 @@ export function VendorEditItemModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-          {/* Image Section */}
-          <div className="space-y-1.5 pb-1">
-            <label className="font-semibold text-foreground block">
-              Item Image
-            </label>
-            <div className="flex items-center gap-3">
-              {/* Image Preview */}
-              <div className="relative size-16 sm:size-20 rounded-2xl overflow-hidden bg-stone-100 dark:bg-stone-800 shrink-0 border border-border">
-                {images.length > 0 ? (
-                  <Image
-                    src={images[0]}
-                    alt={itemName || "Item Preview"}
-                    fill
-                    className="object-cover"
-                    sizes="80px"
-                  />
-                ) : (
-                  <div className="size-full flex flex-col items-center justify-center text-muted-foreground p-1 text-center">
-                    <Camera className="size-5 mb-1" />
-                    <span className="text-[10px]">No Image</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Upload/Replace and Remove Buttons */}
-              <div className="flex flex-col gap-1.5 min-w-0">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    disabled={uploadingImage || submitting}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted/40 hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {uploadingImage ? (
-                      <>
-                        <Loader2 className="size-3.5 animate-spin" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Camera className="size-3.5" />
-                        <span>{images.length > 0 ? "Replace Image" : "Upload Image"}</span>
-                      </>
-                    )}
-                  </button>
-
-                  {images.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={uploadingImage || submitting}
-                      onClick={handleRemoveImage}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <X className="size-3.5" />
-                      <span>Remove</span>
-                    </button>
-                  )}
-                </div>
-                <span className="text-[11px] text-muted-foreground">
-                  Upload via ImgBB (PNG, JPG, WEBP)
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Item Name */}
           <div className="space-y-1">
             <label
@@ -359,12 +325,97 @@ export function VendorEditItemModal({
             />
           </div>
 
+          {/* Item Images Dropzone (required, up to 4) */}
+          <div className="space-y-1.5 pt-1">
+            <label className="font-semibold text-foreground block">
+              Item images (required, up to 4)
+            </label>
+
+            {/* Dropzone Container */}
+            <div
+              onClick={() => {
+                if (!uploadingImages && images.length < 4) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`border-2 border-dashed rounded-2xl p-6 sm:p-7 text-center transition-all flex flex-col items-center justify-center cursor-pointer ${
+                images.length >= 4
+                  ? "opacity-60 cursor-not-allowed border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/30"
+                  : "border-stone-300/80 dark:border-stone-700 bg-[#fcf8f0]/40 dark:bg-stone-900/30 hover:border-primary/50 hover:bg-[#fcf8f0]/70"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                multiple
+                onChange={handleFileChange}
+                disabled={uploadingImages || images.length >= 4}
+                className="hidden"
+              />
+
+              {/* Camera Icon */}
+              <div className="size-11 sm:size-12 rounded-xl bg-stone-900 dark:bg-stone-800 text-white flex items-center justify-center shadow-xs mb-3">
+                {uploadingImages ? (
+                  <Loader2 className="size-5 animate-spin text-white" />
+                ) : (
+                  <Camera className="size-5" />
+                )}
+              </div>
+
+              <p className="font-heading font-bold text-xs sm:text-sm text-foreground">
+                {uploadingImages ? uploadProgress : "Click to upload images"}
+              </p>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
+                PNG or JPG. The first image is the cover.
+              </p>
+            </div>
+
+            {/* Uploaded Images Preview Row */}
+            {images.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {images.map((url, idx) => (
+                  <div
+                    key={`${url}-${idx}`}
+                    className="group relative size-16 sm:size-20 rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-[#fcf8f0] dark:bg-stone-900 shadow-2xs"
+                  >
+                    <Image
+                      src={url}
+                      alt={`Item preview ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="80px"
+                    />
+
+                    {/* Cover label on first image */}
+                    {idx === 0 && (
+                      <div className="absolute top-1 left-1 bg-black/70 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                        Cover
+                      </div>
+                    )}
+
+                    {/* Remove Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(idx)}
+                      disabled={uploadingImages || submitting}
+                      className="absolute top-1 right-1 size-5 rounded-full bg-rose-600 text-white flex items-center justify-center opacity-90 group-hover:opacity-100 hover:scale-110 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                      title="Remove image"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Footer Actions */}
           <div className="pt-3 border-t border-border/70 flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              disabled={submitting || uploadingImage}
+              disabled={submitting || uploadingImages}
               className="px-5 py-2 rounded-full border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
             >
               Cancel
@@ -372,7 +423,7 @@ export function VendorEditItemModal({
 
             <button
               type="submit"
-              disabled={submitting || uploadingImage}
+              disabled={submitting || uploadingImages}
               className="px-6 py-2 rounded-full bg-[#c22d2f] hover:bg-[#a82527] active:scale-95 text-white font-semibold text-xs transition-all shadow-xs disabled:opacity-60 cursor-pointer"
             >
               {submitting ? "Saving…" : "Save Changes"}

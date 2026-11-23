@@ -3,27 +3,23 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Star, User } from "lucide-react";
-import { api } from "@/lib/api-client";
 import { OrderReview } from "@/types/order";
+import { useItemReviews } from "@/hooks/queries";
 
 interface CustomerReviewsSectionProps {
   itemId: string;
 }
 
-interface ItemReviewsResponse {
-  success: boolean;
-  totalReviews: number;
-  averageRating: number;
-  data: OrderReview[];
-}
-
 export function CustomerReviewsSection({ itemId }: CustomerReviewsSectionProps) {
-  const [reviews, setReviews] = useState<OrderReview[]>([]);
-  const [averageRating, setAverageRating] = useState<number>(0);
-  const [totalReviews, setTotalReviews] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
   const [startIndex, setStartIndex] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(3);
+
+  // TanStack Query caching hook for item reviews (1 min staleTime, instant background revalidation)
+  const { data: reviewsData, isLoading: loading } = useItemReviews(itemId);
+
+  const reviews = reviewsData?.data || [];
+  const totalReviews = reviewsData?.totalReviews ?? reviews.length;
+  const averageRating = reviewsData?.averageRating ?? 0;
 
   // Responsive items count: 3 on desktop, 2 on tablet, 1 on mobile
   useEffect(() => {
@@ -40,34 +36,6 @@ export function CustomerReviewsSection({ itemId }: CustomerReviewsSectionProps) 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchReviews() {
-      try {
-        setLoading(true);
-        const res = await api.get<ItemReviewsResponse>(`/api/reviews/item/${itemId}`);
-        if (isMounted && res) {
-          setReviews(res.data || []);
-          setTotalReviews(res.totalReviews || 0);
-          setAverageRating(res.averageRating || 0);
-        }
-      } catch (err) {
-        console.error("Failed to load customer reviews for item:", err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-
-    if (itemId) {
-      fetchReviews();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [itemId]);
 
   // Adjust startIndex if out of bounds after resize or reviews change
   const maxStartIndex = Math.max(0, reviews.length - itemsPerPage);

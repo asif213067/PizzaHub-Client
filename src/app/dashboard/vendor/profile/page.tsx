@@ -21,6 +21,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession, updateUser } from "@/lib/auth-client";
 import { uploadToImgBB } from "@/lib/upload-imgbb";
+import { userService } from "@/services/user.service";
 
 interface VendorProfile {
   _id?: string;
@@ -71,11 +72,9 @@ export default function VendorProfilePage() {
   // Fetch profile data
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await api.get<{ success: boolean; data: VendorProfile }>(
-        "/api/users/profile"
-      );
+      const res = await userService.getProfile();
       if (res?.data) {
-        setProfile(res.data);
+        setProfile(res.data as unknown as VendorProfile);
         setName(res.data.name ?? "");
         setBusinessName(res.data.businessName ?? "");
         setPhone(res.data.phone ?? "");
@@ -176,10 +175,7 @@ export default function VendorProfilePage() {
         payload.image = uploadedImgUrl;
       }
 
-      const res = await api.patch<{ success: boolean; message?: string; data?: VendorProfile }>(
-        "/api/users/profile",
-        payload
-      );
+      const res = await userService.updateProfile(payload);
 
       if (res?.success) {
         // Update Better Auth session store so client state updates immediately

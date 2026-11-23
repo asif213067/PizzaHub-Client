@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
+import { paymentService } from "@/services/payment.service";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SubscriptionStatus {
@@ -109,18 +110,18 @@ export default function VendorSubscriptionPage() {
   const fetchData = useCallback(async () => {
     try {
       const [statusRes, txRes] = await Promise.allSettled([
-        api.get<{ success: boolean; data: SubscriptionStatus }>("/api/payments/subscription-status"),
-        api.get<{ success: boolean; data: Transaction[] }>("/api/payments/transactions"),
+        paymentService.getSubscriptionStatus(),
+        paymentService.getVendorTransactions(),
       ]);
 
       if (statusRes.status === "fulfilled" && statusRes.value?.data) {
-        setStatus(statusRes.value.data);
+        setStatus(statusRes.value.data as unknown as SubscriptionStatus);
       } else {
         setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null, isCancelled: false });
       }
 
       if (txRes.status === "fulfilled" && Array.isArray(txRes.value?.data)) {
-        setTransactions(txRes.value.data);
+        setTransactions(txRes.value.data as unknown as Transaction[]);
       }
     } catch {
       setStatus({ subscriptionPlan: "free", billingCycle: null, subscriptionExpiresAt: null, isCancelled: false });
