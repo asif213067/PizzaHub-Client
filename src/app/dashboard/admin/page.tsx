@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -17,6 +18,7 @@ import { AdminStatCards } from "@/components/dashboard/admin/admin-stat-cards";
 import { AdminUserTable } from "@/components/dashboard/admin/admin-user-table";
 import { AdminMenuApproval } from "@/components/dashboard/admin/admin-menu-approval";
 import { AdminTransactionsTable } from "@/components/dashboard/admin/admin-transactions-table";
+import { AdminReviewTable } from "@/components/dashboard/admin/admin-review-table";
 import { api, syncAuthToken } from "@/lib/api-client";
 import { useSession } from "@/lib/auth-client";
 import {
@@ -24,13 +26,14 @@ import {
   AdminUser,
   AdminMenuItem,
   AdminTransaction,
+  AdminReview,
 } from "@/types/admin";
 
 export default function AdminDashboardPage() {
   const { data: session } = useSession();
 
-  // Tab State: "overview" | "users" | "items" | "transactions"
-  const [activeTab, setActiveTab] = useState<"overview" | "users" | "items" | "transactions">("overview");
+  // Tab State: "overview" | "users" | "items" | "transactions" | "reviews"
+  const [activeTab, setActiveTab] = useState<"overview" | "users" | "items" | "transactions" | "reviews">("overview");
 
   // Overview Stats
   const [stats, setStats] = useState<AdminOverviewStats | null>(null);
@@ -59,6 +62,15 @@ export default function AdminDashboardPage() {
   const [transactions, setTransactions] = useState<AdminTransaction[]>([]);
   const [txLoading, setTxLoading] = useState(true);
   const [txTotalCount, setTxTotalCount] = useState(0);
+
+  // Reviews State
+  const [reviews, setReviews] = useState<AdminReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = useState(1);
+  const [totalReviewsCount, setTotalReviewsCount] = useState(0);
+  const [reviewSearch, setReviewSearch] = useState("");
+  const [reviewRatingFilter, setReviewRatingFilter] = useState("all");
 
   // Sync auth token
   useEffect(() => {
@@ -160,13 +172,43 @@ export default function AdminDashboardPage() {
     }
   }, []);
 
+  // Fetch Reviews
+  const fetchReviews = useCallback(async () => {
+    setReviewsLoading(true);
+    try {
+      const queryParams = new URLSearchParams({
+        page: reviewPage.toString(),
+        limit: "10",
+        rating: reviewRatingFilter,
+        ...(reviewSearch.trim() ? { search: reviewSearch.trim() } : {}),
+      });
+
+      const res = await api.get<{
+        success: boolean;
+        data: AdminReview[];
+        pagination: { total: number; totalPages: number };
+      }>(`/api/admin/reviews?${queryParams.toString()}`);
+
+      if (res?.data) {
+        setReviews(res.data);
+        setReviewTotalPages(res.pagination?.totalPages || 1);
+        setTotalReviewsCount(res.pagination?.total || 0);
+      }
+    } catch {
+      // silently handle
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [reviewPage, reviewRatingFilter, reviewSearch]);
+
   // Initial Load
   useEffect(() => {
     fetchStats();
     fetchUsers();
     fetchMenuItems();
     fetchTransactions();
-  }, [fetchStats, fetchUsers, fetchMenuItems, fetchTransactions]);
+    fetchReviews();
+  }, [fetchStats, fetchUsers, fetchMenuItems, fetchTransactions, fetchReviews]);
 
   // Callback when an item status changes
   function handleItemUpdated() {
@@ -186,6 +228,7 @@ export default function AdminDashboardPage() {
     fetchUsers();
     fetchMenuItems();
     fetchTransactions();
+    fetchReviews();
     toast.success("Dashboard data refreshed!");
   }
 
@@ -223,6 +266,7 @@ export default function AdminDashboardPage() {
               icon: UtensilsCrossed,
               highlight: (stats?.pendingMenuItems ?? 0) > 0,
             },
+            { id: "reviews", label: `Reviews (${totalReviewsCount || stats?.totalReviews || 0})`, icon: Star },
             { id: "transactions", label: "Financials & Revenue", icon: DollarSign },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -373,6 +417,32 @@ export default function AdminDashboardPage() {
             transactions={transactions}
             totalCount={txTotalCount}
             loading={txLoading}
+          />
+        )}
+
+        {/* ── TAB 5: REVIEWS MANAGEMENT ───────────────────────────────── */}
+        {activeTab === "reviews" && (
+          <AdminReviewTable
+            reviews={reviews}
+            totalReviews={totalReviewsCount}
+            currentPage={reviewPage}
+            totalPages={reviewTotalPages}
+            loading={reviewsLoading}
+            onPageChange={setReviewPage}
+            onSearchChange={(q) => {
+              setReviewSearch(q);
+              setReviewPage(1);
+            }}
+            onRatingFilterChange={(r) => {
+              setReviewRatingFilter(r);
+              setReviewPage(1);
+            }}
+            selectedRating={reviewRatingFilter}
+            searchQuery={reviewSearch}
+            onReviewDeleted={() => {
+              fetchReviews();
+              fetchStats();
+            }}
           />
         )}
       </main>

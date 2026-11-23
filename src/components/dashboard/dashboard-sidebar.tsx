@@ -123,6 +123,12 @@ export function DashboardSidebar() {
       active: pathname.startsWith("/dashboard/admin/items"),
     },
     {
+      name: "Reviews",
+      href: "/dashboard/admin/reviews",
+      icon: Star,
+      active: pathname.startsWith("/dashboard/admin/reviews"),
+    },
+    {
       name: "Profile",
       href: "/dashboard/admin/profile",
       icon: User,

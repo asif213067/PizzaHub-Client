@@ -5,6 +5,7 @@ export interface AdminOverviewStats {
   totalMenuItems: number;
   pendingMenuItems: number;
   totalOrders: number;
+  totalReviews?: number;
   totalTransactions: number;
   totalRevenue: number;
 }
@@ -59,4 +60,24 @@ export interface AdminTransaction {
     email?: string;
     businessName?: string;
   };
+}
+
+export interface AdminReview {
+  _id: string;
+  orderId?: string;
+  itemId?: string;
+  vendorId?: string;
+  customerId?: string;
+  customerName: string;
+  customerImage?: string;
+  rating: number;
+  comment: string;
+  verifiedPurchase?: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+  itemName?: string;
+  itemImage?: string;
+  itemCategory?: string;
+  vendorName?: string;
+  vendorEmail?: string;
 }

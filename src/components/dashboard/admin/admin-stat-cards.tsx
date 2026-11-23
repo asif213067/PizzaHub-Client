@@ -37,7 +37,7 @@ export function AdminStatCards({ stats, loading }: AdminStatCardsProps) {
     {
       title: "Registered Vendors",
       value: stats.totalVendors,
-      sub: `${stats.totalMenuItems} Menu items published`,
+      sub: `${stats.totalMenuItems} Items · ${stats.totalReviews ?? 0} Reviews`,
       icon: Store,
       color: "text-amber-600 dark:text-amber-400",
       bg: "bg-amber-50 dark:bg-amber-950/40",
