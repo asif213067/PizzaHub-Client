@@ -1,5 +1,5 @@
 import { Navbar } from "@/components/shared/navbar";
-import { AuthFooter } from "@/components/auth";
+import { Footer } from "@/components/shared/footer";
 
 export default function AuthLayout({
   children,
@@ -12,7 +12,7 @@ export default function AuthLayout({
       <main className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">
         {children}
       </main>
-      <AuthFooter />
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.4.6-black?style=flat&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.3.0-61DAFB?style=flat&logo=react)](https://react.dev/)
+[![TanStack Query](https://img.shields.io/badge/TanStack_Query-5.108.3-FF4154?style=flat&logo=react-query)](https://tanstack.com/query)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.3.3-38B2AC?style=flat&logo=tailwind-css)](https://tailwindcss.com/)
 [![Better Auth](https://img.shields.io/badge/Better_Auth-1.7.26-orange?style=flat)](https://www.better-auth.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?style=flat&logo=typescript)](https://www.typescriptlang.org/)
@@ -54,7 +55,7 @@ PizzaHub solves the disconnect between artisanal local pizzerias and hungry cust
 ## Key Features
 
 ### Customer Experience
-- **Interactive Landing Page:** Hero showcase, popular pizza categories, featured pizzas, value proposition cards, and "How It Works" walkthrough.
+- **Interactive Landing Page & Transparent Navbar:** Hero showcase, popular pizza categories, featured pizzas, value proposition cards, and "How It Works" walkthrough beneath a sleek, fully transparent floating Navbar (`bg-transparent`) that seamlessly blends with underlying backgrounds across all screen sizes.
 - **Browse Menu & Filtering:** Full menu listing with instant search, category filters (Classic, Vegetarian, Meat Lovers, Gourmet, Sides, Beverages), location filters, and price/date sorting.
 - **Pizza Details & Multi-Image Carousel:** Dynamic detail pages featuring image thumbnail galleries, vendor store badges, price breakdowns, and related vendor pizzas.
 - **Ordering System:** Modal-based checkout collecting delivery date, address, and special instructions. Vendors are strictly prevented from ordering their own items.
@@ -64,25 +65,32 @@ PizzaHub solves the disconnect between artisanal local pizzerias and hungry cust
 
 ### Vendor Experience & Dashboard
 - **Storefront & Profile Management:** Configure pizzeria business name, contact phone, and kitchen location.
-- **Menu Item Management:**
-  - Create new menu items with multi-image support (up to 2–3 images per item).
-  - Images upload directly to ImgBB from the device with real-time preview and progress indicators.
-  - Automatic form reset upon successful creation.
+- **Menu Item Management & Multi-Image Support:**
+  - Create and edit menu items with multi-image support (up to 4 images per item).
+  - Images upload directly to ImgBB from the device with real-time preview, cover image badge, and individual removal.
+  - Keyed form architecture (`<VendorEditItemForm key={item._id} />`) ensuring zero cascading renders on modal open.
+  - Multi-image **View Details Carousel**: Horizontal slider with smooth navigation, previous/next buttons, dot indicators, image counter (`1 / 4`), and keyboard arrow controls (<kbd>←</kbd> / <kbd>→</kbd>), auto-hidden when only 1 image exists.
   - Consistent menu card sizing with line-clamping and responsive two-row mobile actions (`Available + View Details` / `Edit + Delete`).
-  - Edit existing items and preview/replace photos.
   - Availability toggle (`Available` vs `Unavailable`) restricted strictly to **Accepted/Approved** items.
 - **Tier-Based Limits (Free vs. Premium):**
   - **Free Tier:** Limited to 3 active menu items. Attempts to exceed the limit are blocked with an upgrade prompt.
   - **Premium Tier:** Unlimited menu items, verified vendor badge, and featured placement.
-- **Order Fulfillment:** Incoming order stream with customer delivery notes, delivery dates, and one-click **Accept** or **Reject** actions.
+- **Order Fulfillment & Live Polling:** Incoming order stream with customer delivery notes, delivery dates, and one-click **Accept** or **Reject** actions. Powered by automated 60-second background polling with inactive tab pausing.
 - **Subscription Management:** View active plan, billing cycle, expiration date, and upgrade/cancel via Stripe checkout session integrations.
 
 ### Admin Experience & Governance
 - **Platform Overview:** High-level metrics tracking total users, active vendors, published menu items, order counts, and transaction revenue.
 - **Menu Item Moderation:** Review queue for all vendor submissions with ability to **Approve**, **Reject**, or **Deactivate** items across the marketplace.
+- **Customer Reviews Moderation:** Dedicated review moderation center (`/dashboard/admin/reviews`) to inspect customer feedback across all vendor kitchens, filter by star rating, search reviews, view review dialogs, and permanently delete reviews with automatic item rating recalculation.
 - **User & Vendor Management:** Comprehensive user table displaying role badges, registration dates, and a toggle-block mechanism that immediately revokes API access for blocked accounts.
 - **Transaction Logs:** Auditable log of all Stripe subscription transactions and payments.
 - **Read-Only Admin Profile:** Secure, view-only administrative identity view preventing unauthorized permission or profile mutations.
+
+### Centralized Data Caching & Domain Services
+- **TanStack Query (React Query v5):** Centralized caching provider (`QueryProvider`) and query key registry (`queryKeys`).
+  - **Role-Based Stale Policies:** Public Menu (3m), Customer Reviews (1m), Customer Orders (30s), Vendor Orders (30s stale, 60s auto-polling, inactive tab disabled), Vendor Menu (2m), Admin Data (fresh on entry).
+  - **Instant Cache Invalidation:** Mutations immediately invalidate related caches (e.g. placing/cancelling orders, submitting reviews, updating menu items) without manual state refresh boilerplate.
+- **Centralized Domain Services Layer (`src/services/`):** Strongly typed domain services (`menuService`, `orderService`, `reviewService`, `userService`, `paymentService`, `adminService`) decoupling network requests from UI components.
 
 ### Authentication & Role Management
 - **Better Auth Integration:** Powered by `@better-auth/mongo-adapter` with secure session management, salted password hashing, and cookie-based authentication.
@@ -99,6 +107,7 @@ PizzaHub solves the disconnect between artisanal local pizzerias and hungry cust
 | :--- | :--- | :--- |
 | **Framework** | [Next.js 16.4.6](https://nextjs.org/) | React framework with App Router, Turbopack, and Server Components |
 | **UI Library** | [React 19.3.0](https://react.dev/) | Component-based user interface rendering |
+| **Data Fetching & Cache** | [TanStack Query 5.108.3](https://tanstack.com/query) | Centralized client-side caching, role-based stale policies, and query hooks |
 | **Styling** | [Tailwind CSS 4.3.3](https://tailwindcss.com/) | Utility-first styling with modern CSS color variables and theme tokens |
 | **Authentication** | [Better Auth 1.7.26](https://www.better-auth.com/) | Authentication framework supporting email/password, Google OAuth, and session tokens |
 | **Database Adapter**| `@better-auth/mongo-adapter` | Native MongoDB connection adapter for Better Auth |
@@ -137,31 +146,50 @@ pizzahub-client-tmp/
 │   │   │   ├── signin/           # /auth/signin (Sign In Form)
 │   │   │   └── signup/           # /auth/signup (Sign Up Form)
 │   │   ├── dashboard/            # Dashboard layout & protected segments
-│   │   │   ├── admin/            # Admin dashboard (/dashboard/admin, items, users, profile)
+│   │   │   ├── admin/            # Admin dashboard (/dashboard/admin, items, users, reviews, profile)
+│   │   │   │   ├── items/        # Menu item approval dashboard
+│   │   │   │   ├── profile/      # Read-only admin credentials view
+│   │   │   │   ├── reviews/      # Customer reviews moderation & deletion
+│   │   │   │   │   ├── loading.tsx
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── users/        # User governance & block management
 │   │   │   ├── customer/         # Customer dashboard (/dashboard/customer, orders, profile)
 │   │   │   ├── vendor/           # Vendor dashboard (/dashboard/vendor, items, orders, add-item, subscription, profile)
 │   │   │   ├── layout.tsx        # Dashboard layout with persistent sidebar
 │   │   │   └── loading.tsx       # Route loading skeleton for all dashboard tabs
 │   │   ├── globals.css           # Global Tailwind v4 directives and CSS theme variables
-│   │   ├── layout.tsx            # Root HTML layout, Inter & Poppins fonts, Toaster
+│   │   ├── layout.tsx            # Root HTML layout, QueryProvider, fonts, Toaster
 │   │   ├── loading.tsx           # Global fallback route loading screen
 │   │   └── not-found.tsx         # Branded custom 404 Not Found page
 │   ├── components/               # Modular UI components
 │   │   ├── auth/                 # Auth forms (signin, signup, vendor guidance)
 │   │   ├── dashboard/            # Shared dashboard components (sidebar, header, charts, stat cards)
-│   │   │   ├── admin/            # Admin stat cards, user tables, approval lists
+│   │   │   ├── admin/            # Admin stat cards, user tables, approval lists, review table
 │   │   │   ├── orders/           # Order cards, cancel modal, review modal, pagination
-│   │   │   └── vendor/           # Vendor item cards, edit modals, tier banners, charts
+│   │   │   └── vendor/           # Vendor item cards, multi-image edit modal, tier banners, charts
 │   │   ├── landing-page/         # Hero banner, categories, featured items, testimonials
 │   │   ├── menu/                 # Menu filters, menu grid, item details, review carousel
-│   │   ├── shared/               # Navbar, footer, pizza card, theme toggle
+│   │   ├── shared/               # Transparent navbar, footer, pizza card, theme toggle
 │   │   └── ui/                   # Shared UI primitives (Button)
+│   ├── hooks/                    # Reusable custom React hooks
+│   │   └── queries/              # TanStack Query domain hooks (menu, orders, reviews, users, payments, admin)
 │   ├── lib/                      # Core utility libraries & clients
 │   │   ├── api-client.ts         # Axios/Fetch API client with token sync & error handlers
 │   │   ├── auth-client.ts        # Better Auth React client instance
 │   │   ├── auth.ts               # Better Auth server configuration with MongoDB adapter
+│   │   ├── query-keys.ts         # Centralized query keys registry & cache policies
 │   │   ├── upload-imgbb.ts       # Direct browser-to-ImgBB image upload helper
 │   │   └── utils.ts              # ClassName merge (`cn`) utility
+│   ├── providers/                # Application providers
+│   │   └── query-provider.tsx    # TanStack Query ClientProvider configuration
+│   ├── services/                 # Centralized domain API services layer
+│   │   ├── admin.service.ts      # Admin overview & platform transactions
+│   │   ├── menu.service.ts       # Public, vendor, and admin menu operations
+│   │   ├── order.service.ts      # Customer and vendor order operations
+│   │   ├── payment.service.ts    # Subscriptions & checkout sessions
+│   │   ├── review.service.ts     # Customer, vendor, and admin reviews
+│   │   ├── user.service.ts       # User profiles & account block toggles
+│   │   └── index.ts              # Unified barrel export
 │   └── types/                    # Shared TypeScript interfaces & types
 │       ├── admin.ts
 │       ├── order.ts
@@ -289,23 +317,34 @@ Defined in `package.json`:
 ### Admin Dashboard (`/dashboard/admin/*`)
 - `/dashboard/admin` — Platform-wide statistics on registered users, vendors, menu items, and transaction volume.
 - `/dashboard/admin/items` — Menu approval dashboard to approve, reject, or deactivate vendor items.
+- `/dashboard/admin/reviews` — Customer reviews moderation table with star rating filters, text search, inspection modal, and permanent delete with automatic rating recalculation.
 - `/dashboard/admin/users` — User management table with role badges and account blocking/unblocking controls.
 - `/dashboard/admin/profile` — View-only administrative identity credentials.
 
 ---
 
-## Backend Integration & API Client
+## Backend Integration & Centralized Services
 
-All asynchronous data communication between the frontend and the Express backend is orchestrated through `src/lib/api-client.ts`:
+All asynchronous data communication between the frontend and the Express backend is structured through a decoupled, multi-tier architecture:
 
-1. **Base URL Resolution:**
-   Reads `NEXT_PUBLIC_SERVER_BASE_URL` (defaulting to `http://localhost:5000`).
-2. **JWT Synchronization (`syncAuthToken`):**
-   When a user logs in via Better Auth, their email is verified and sent to `POST /api/auth/jwt` on the Express backend. The returned signed JWT is stored in `localStorage` under `pizzahub_jwt`.
-3. **Automatic Authorization Headers:**
-   Every outgoing request issued via `api.get`, `api.post`, `api.patch`, `api.put`, or `api.delete` automatically attaches `Authorization: Bearer <token>`.
-4. **401/403 Handling:**
-   If a request encounters a `401 Unauthorized` or `403 Forbidden` due to account blocking or token expiration, the stored token is safely cleared to prevent stale state.
+### 1. Centralized Domain Services (`src/services/`)
+Instead of embedding raw HTTP calls within UI components, every backend interaction is encapsulated within dedicated, strongly typed service modules:
+- `menuService`: Public menu discovery, item details, vendor CRUD, and admin approval actions.
+- `orderService`: Customer order placement, tracking, cancellation, and vendor order fulfillment.
+- `reviewService`: Item review listings, customer review submissions, and admin review moderation.
+- `userService`: User/vendor profile retrieval, updates, and admin user blocking.
+- `paymentService`: Subscription tier status queries, Stripe checkout sessions, and cancellations.
+- `adminService`: Platform overview analytics and global transaction logs.
+
+### 2. HTTP Client Layer (`src/lib/api-client.ts`)
+- **Base URL Resolution:** Reads `NEXT_PUBLIC_SERVER_BASE_URL` (defaulting to `http://localhost:5000`).
+- **JWT Synchronization (`syncAuthToken`):** When a user logs in via Better Auth, their email is verified and sent to `POST /api/auth/jwt` on the Express backend. The returned signed JWT is stored in `localStorage` under `pizzahub_jwt_token`.
+- **Automatic Authorization Headers:** Outgoing requests automatically attach `Authorization: Bearer <token>`.
+- **401/403 Handling:** Stored tokens are cleared upon unauthenticated errors to maintain state integrity.
+
+### 3. TanStack Query Layer (`src/hooks/queries/`)
+- Manages client-side query caching, deduplication, and background synchronization via domain hooks (e.g. `usePublicMenu`, `useVendorOrders`, `useCustomerOrders`, `useItemReviews`).
+- Automatically polls vendor orders every 60 seconds with tab-inactivity awareness and invalidates related caches immediately upon mutations.
 
 ---
 

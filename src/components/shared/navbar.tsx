@@ -133,11 +133,11 @@ export function Navbar() {
     : "U";
 
   return (
-    <header className="w-full pt-4 px-4 sm:px-6 lg:px-8 sticky top-0 z-50">
+    <header className="w-full pt-4 px-4 sm:px-6 lg:px-8 sticky top-0 z-50 bg-transparent">
       <div className="max-w-7xl mx-auto">
         <nav
           aria-label="Main Navigation"
-          className="w-full bg-white/95 dark:bg-[#28241E]/95 backdrop-blur-md rounded-full border border-border/70 px-5 sm:px-6 py-2.5 sm:py-3 shadow-xs flex items-center justify-between transition-all"
+          className="w-full backdrop-blur-md rounded-full border border-border/70 px-5 sm:px-6 py-2.5 sm:py-3 shadow-xs flex items-center justify-between transition-all"
         >
           {/* Left side: Website Logo */}
           <Link
