@@ -1,3 +1,5 @@
+import { authClient } from "@/lib/auth-client";
+
 const SERVER_BASE_URL =
   process.env.NEXT_PUBLIC_SERVER_BASE_URL || "http://localhost:5000";
 
@@ -19,20 +21,62 @@ export function clearStoredToken(): void {
 }
 
 /**
- * Exchanges the authenticated user's email with the Express backend to obtain a verified JWT token.
+ * Exchanges the authenticated user's session with the Express backend to obtain a verified JWT token.
+ * Passes the active Better Auth session token to verify user identity and prevent privilege spoofing.
  */
-export async function syncAuthToken(email: string): Promise<string | null> {
+export async function syncAuthToken(
+  email?: string,
+  sessionToken?: string
+): Promise<string | null> {
   try {
+    let tokenToSend = sessionToken;
+
+    // Retrieve active session token from Better Auth if not explicitly passed
+    if (!tokenToSend && typeof window !== "undefined") {
+      try {
+        const sessionRes = await authClient.getSession();
+        tokenToSend = sessionRes?.data?.session?.token;
+        if (!email && sessionRes?.data?.user?.email) {
+          email = sessionRes.data.user.email;
+        }
+      } catch (sessionErr) {
+        console.warn("Could not retrieve active Better Auth session:", sessionErr);
+      }
+    }
+
+    // Browser cookie fallback if accessible
+    if (!tokenToSend && typeof document !== "undefined") {
+      const match = document.cookie.match(
+        /(?:^|;\s*)(?:better-auth\.session_token|__Secure-better-auth\.session_token)=([^;]+)/
+      );
+      if (match) {
+        tokenToSend = decodeURIComponent(match[1]);
+      }
+    }
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (tokenToSend) {
+      headers["x-session-token"] = tokenToSend;
+    }
+
     const res = await fetch(`${SERVER_BASE_URL}/api/auth/jwt`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
+      headers,
+      body: JSON.stringify({
+        email,
+        sessionToken: tokenToSend,
+      }),
     });
 
     if (!res.ok) {
-      console.warn("Failed to obtain server JWT token:", await res.text());
+      const errorData = await res.json().catch(() => null);
+      const errorMsg = errorData?.message || `Failed with status ${res.status}`;
+      console.warn("Failed to obtain server JWT token:", errorMsg);
+      if (res.status === 403) {
+        throw new Error(errorMsg);
+      }
       return null;
     }
 
@@ -43,6 +87,9 @@ export async function syncAuthToken(email: string): Promise<string | null> {
     }
     return null;
   } catch (err) {
+    if (err instanceof Error && err.message.toLowerCase().includes("blocked")) {
+      throw err;
+    }
     console.error("Error syncing auth token with backend:", err);
     return null;
   }

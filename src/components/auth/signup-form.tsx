@@ -211,7 +211,17 @@ function SignUpFormFields() {
       }
 
       // Sync verified JWT with Express backend
-      await syncAuthToken(registeredEmail);
+      const rawResult = result as { data?: { token?: string; session?: { token?: string } } };
+      const directToken = rawResult?.data?.token || rawResult?.data?.session?.token;
+      try {
+        await syncAuthToken(registeredEmail, directToken);
+      } catch (tokenErr) {
+        if (tokenErr instanceof Error && tokenErr.message.toLowerCase().includes("blocked")) {
+          setError("Your account has been suspended by an administrator.");
+          setLoading(false);
+          return;
+        }
+      }
 
       setTimeout(() => {
         const roleDashboard =

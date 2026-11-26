@@ -40,4 +40,46 @@ export const auth = betterAuth({
       },
     },
   },
+
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          // Enforce allowed public registration roles: only 'customer' and 'vendor' are permitted.
+          // Disallow self-registration as 'admin' or any unapproved role to prevent privilege escalation.
+          const allowedRoles = ["customer", "vendor"];
+          const userRole = (user as Record<string, unknown>).role;
+          const role =
+            typeof userRole === "string" && allowedRoles.includes(userRole)
+              ? userRole
+              : "customer";
+
+          return {
+            data: {
+              ...user,
+              role,
+              isBlocked: false,
+            },
+          };
+        },
+      },
+      update: {
+        before: async (user) => {
+          // Prevent privilege escalation or unblocking via client-side updates.
+          const sanitized = { ...user } as Record<string, unknown>;
+          if (
+            sanitized.role &&
+            sanitized.role !== "customer" &&
+            sanitized.role !== "vendor"
+          ) {
+            delete sanitized.role;
+          }
+          delete sanitized.isBlocked;
+          return {
+            data: sanitized,
+          };
+        },
+      },
+    },
+  },
 });
