@@ -220,14 +220,14 @@ export function VendorMenuItemCard({
             <p className="text-xs text-muted-foreground mt-0.5 truncate block line-clamp-1">
               {category}
             </p>
-            {item.description && (
+            {/* {item.description && (
               <p
                 className="text-xs text-muted-foreground/80 mt-1 line-clamp-1 truncate"
                 title={item.description}
               >
                 {item.description}
               </p>
-            )}
+            )} */}
           </div>
         </div>
 
